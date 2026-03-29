@@ -1,0 +1,43 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=MedievalSharp&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap');
+
+@theme {
+  --font-gothic: "MedievalSharp", cursive;
+  --font-serif: "Cormorant Garamond", serif;
+  
+  --color-sepia: #704214;
+  --color-gold: #C9A343;
+  --color-ink: #1E1B18;
+  --color-ash: #D8CFC4;
+  --color-parchment: #F5F2ED;
+}
+
+body {
+  @apply bg-parchment text-ink font-serif overflow-x-hidden;
+  background-image: url('https://www.transparenttextures.com/patterns/parchment.png');
+}
+
+h1, h2, h3, h4 {
+  @apply font-gothic;
+}
+
+.parchment-card {
+  @apply border-2 shadow-lg relative overflow-hidden;
+  border-color: var(--card-border, rgba(112, 66, 20, 0.3));
+  background-color: var(--card-bg, #F5F2ED);
+  background-image: url('https://www.transparenttextures.com/patterns/parchment.png');
+}
+
+.gold-glow {
+  box-shadow: 0 0 15px rgba(201, 163, 67, 0.4);
+}
+
+@keyframes swirl {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-swirl {
+  animation: swirl 10s linear infinite;
+}
+
