@@ -41,6 +41,8 @@ interface AtelierProps {
   setSlotA: React.Dispatch<React.SetStateAction<AlchemyElement | null>>;
   slotB: AlchemyElement | null;
   setSlotB: React.Dispatch<React.SetStateAction<AlchemyElement | null>>;
+  aihim: number;
+  onOpenShop: () => void;
 }
 
 const LAYER_ICONS: Record<number, any> = {
@@ -58,19 +60,10 @@ const LAW_ICONS: Record<string, any> = {
   'Hourglass': Hourglass,
 };
 
-const UniverseStatus = ({ elements, worldPhase, phaseTimer }: { elements: AlchemyElement[], worldPhase: WorldPhase, phaseTimer: number }) => {
+const UniverseStatus = ({ elements, worldPhase, phaseTimer, aihim, onOpenShop }: { elements: AlchemyElement[], worldPhase: WorldPhase, phaseTimer: number, aihim: number, onOpenShop: () => void }) => {
   const maxReality = Math.max(1, ...elements.map(e => e.realityLevel || 1));
   const currentLayer = REALITY_LAYERS.find(l => l.level === maxReality) || REALITY_LAYERS[0];
   const LayerIcon = LAYER_ICONS[maxReality] || Shield;
-
-  const discoveredLaws = HIDDEN_LAWS.filter(law => {
-    if (!elements || elements.length === 0) return false;
-    if (law.id === 'temp') return elements.some(e => (e.temperature || 0) > 500);
-    if (law.id === 'opp') return elements.some(e => e.essences?.includes('void')) && elements.some(e => e.essences?.includes('creation'));
-    if (law.id === 'life') return elements.some(e => e.essences?.includes('life'));
-    if (law.id === 'time') return elements.length > 20;
-    return false;
-  });
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -101,26 +94,28 @@ const UniverseStatus = ({ elements, worldPhase, phaseTimer }: { elements: Alchem
             <div className="text-[7px] md:text-[8px] uppercase tracking-widest text-sepia/50 font-bold">Фаза Мира</div>
             <div className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 md:gap-2">
               {worldPhase === 'day' ? 'День' : 'Ночь'}
-              <span className="font-mono text-[8px] md:text-[9px] opacity-60">({formatTime(phaseTimer)})</span>
+              <span className="font-mono text-[10px] md:text-[12px] opacity-80 text-gold">({formatTime(phaseTimer)})</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-wrap justify-center gap-2">
-        {discoveredLaws.length > 0 ? (
-          discoveredLaws.map(law => {
-            const Icon = LAW_ICONS[law.icon] || Info;
-            return (
-              <div key={law.id} className="flex items-center gap-1.5 px-2 py-1 bg-sepia/5 border border-gold/20 rounded-full" title={law.desc}>
-                <Icon size={10} className="text-gold" />
-                <span className="text-[8px] uppercase font-bold tracking-wider text-sepia/70">{law.name}</span>
-              </div>
-            );
-          })
-        ) : (
-          <div className="text-[8px] uppercase tracking-widest text-sepia/30 italic">Законы вселенной еще не познаны...</div>
-        )}
+      <div className="flex items-center gap-3 md:gap-6">
+        <div className="flex items-center gap-2 md:gap-3 bg-sepia/5 px-3 py-1.5 rounded-full border border-gold/20">
+          <img src="https://i.ibb.co/5g4dfh7f/aihim.png" alt="AIhim" className="w-4 h-4 md:w-5 md:h-5 object-contain" />
+          <div className="flex flex-col">
+            <span className="text-[7px] md:text-[8px] uppercase font-bold text-sepia/50 leading-none">Баланс AIhim</span>
+            <span className="text-xs md:text-sm font-bold text-gold leading-none">{aihim}</span>
+          </div>
+        </div>
+        
+        <button 
+          onClick={onOpenShop}
+          className="flex items-center gap-2 px-3 py-1.5 bg-gold text-white rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest hover:bg-gold/80 transition-colors shadow-lg gold-glow"
+        >
+          <Plus size={12} />
+          КУПИТЬ
+        </button>
       </div>
     </div>
   );
@@ -182,7 +177,9 @@ export const Atelier: React.FC<AtelierProps> = ({
   slotA,
   setSlotA,
   slotB,
-  setSlotB
+  setSlotB,
+  aihim,
+  onOpenShop
 }) => {
   const [search, setSearch] = useState('');
 
@@ -198,14 +195,14 @@ export const Atelier: React.FC<AtelierProps> = ({
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const activeElement = useMemo(() => 
-    elements.find(e => e.id === activeId), 
+    elements.find(e => e && e.id === activeId), 
     [elements, activeId]
   );
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 15,
       },
     }),
     useSensor(KeyboardSensor, {
@@ -230,12 +227,12 @@ export const Atelier: React.FC<AtelierProps> = ({
 
     // Handle dropping into slots
     if (over.id === 'slot-a') {
-      const element = elements.find(e => e.id === active.id);
+      const element = elements.find(e => e && e.id === active.id);
       if (element && slotB?.id !== element.id) setSlotA(element);
       return;
     }
     if (over.id === 'slot-b') {
-      const element = elements.find(e => e.id === active.id);
+      const element = elements.find(e => e && e.id === active.id);
       if (element && slotA?.id !== element.id) setSlotB(element);
       return;
     }
@@ -243,8 +240,9 @@ export const Atelier: React.FC<AtelierProps> = ({
     // Handle sorting
     if (active.id !== over.id) {
       setElements((items) => {
-        const oldIndex = items.findIndex(i => i.id === active.id);
-        const newIndex = items.findIndex(i => i.id === over.id);
+        const oldIndex = items.findIndex(i => i && i.id === active.id);
+        const newIndex = items.findIndex(i => i && i.id === over.id);
+        if (oldIndex === -1 || newIndex === -1) return items;
         return arrayMove(items, oldIndex, newIndex);
       });
     }
@@ -263,18 +261,20 @@ export const Atelier: React.FC<AtelierProps> = ({
   };
 
   const handleUseElement = (element: AlchemyElement) => {
+    if (!element) return;
     if (!slotA) {
       setSlotA(element);
-    } else if (!slotB && slotA.id !== element.id) {
+    } else if (!slotB && slotA && slotA.id !== element.id) {
       setSlotB(element);
     } else if (slotA && slotB) {
       setSlotA(element);
     }
   };
 
-  const { currentRank, nextRank, progressToNext } = useMemo(() => {
-    const { currentRank, nextRank, progressToNext } = calculateRank(elements.length);
-    return { currentRank, nextRank, progressToNext };
+  const { currentRank, nextRank, progressToNextRank, level, levelTarget, progressToNextLevel } = useMemo(() => {
+    const validElementsCount = elements.filter(e => e !== null).length;
+    const { currentRank, nextRank, progressToNextRank, level, levelTarget, progressToNextLevel } = calculateRank(validElementsCount);
+    return { currentRank, nextRank, progressToNextRank, level, levelTarget, progressToNextLevel };
   }, [elements.length]);
 
   const [showProgressTooltip, setShowProgressTooltip] = useState(false);
@@ -288,9 +288,48 @@ export const Atelier: React.FC<AtelierProps> = ({
         onDragEnd={handleDragEnd}
       >
         {/* Universe State (New) */}
-        <UniverseStatus elements={elements} worldPhase={worldPhase} phaseTimer={phaseTimer} />
+        <UniverseStatus elements={elements} worldPhase={worldPhase} phaseTimer={phaseTimer} aihim={aihim} onOpenShop={onOpenShop} />
 
-        {/* Alchemy Message Notification - MOVED TO APP.TSX */}
+        {/* Rank & Level Display (New) */}
+        <div className="parchment-card p-4 bg-sepia/5 border-gold/20 flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center text-2xl border border-gold/30">
+                {currentRank.icon}
+              </div>
+              <div>
+                <div className="text-[10px] uppercase font-bold text-gold tracking-widest">Ранг: {currentRank.name}</div>
+                <div className="text-lg font-gothic tracking-widest">Уровень: {level}</div>
+              </div>
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              <div className="text-[10px] uppercase font-bold text-sepia/60 tracking-widest">Элементов: {elements.length} / {levelTarget}</div>
+              <div className="w-48 h-2 bg-sepia/10 rounded-full overflow-hidden border border-sepia/20">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(elements.length / levelTarget) * 100}%` }}
+                  className="h-full bg-gold"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="h-px bg-sepia/10 w-full" />
+
+          <div className="flex flex-col gap-2">
+            <div className="flex justify-between items-center text-[9px] uppercase font-bold tracking-widest">
+              <span className="text-sepia/60">Прогресс Ранга</span>
+              <span className="text-gold">До {nextRank?.name || 'Предела'}: {nextRank ? nextRank.min - elements.length : 0} элементов</span>
+            </div>
+            <div className="w-full h-1.5 bg-sepia/10 rounded-full overflow-hidden">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${progressToNextRank}%` }}
+                className="h-full bg-gold shadow-[0_0_10px_rgba(201,163,67,0.5)]"
+              />
+            </div>
+          </div>
+        </div>
 
         {/* Inventory Section (Now Second) */}
         <div className="flex flex-col gap-6">
@@ -299,37 +338,10 @@ export const Atelier: React.FC<AtelierProps> = ({
               <h2 className="text-xl font-gothic tracking-widest flex items-center gap-2">
                 <Sparkles size={18} className="text-gold" />
                 ДОСТУПНЫЕ ЭЛЕМЕНТЫ
-              </h2>
-              <div className="flex items-center gap-3 relative">
-                <div 
-                  className="h-1.5 w-32 bg-sepia/10 rounded-full overflow-hidden cursor-help"
-                  onMouseEnter={() => setShowProgressTooltip(true)}
-                  onMouseLeave={() => setShowProgressTooltip(false)}
-                >
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${progressToNext}%` }}
-                    className="h-full bg-gold"
-                  />
-                </div>
-                <span className="text-[10px] uppercase font-bold text-sepia/60 tracking-widest">
-                  Познание: {progressToNext}%
+                <span className="text-xs font-bold text-gold bg-gold/10 px-2 py-0.5 rounded border border-gold/20 ml-2">
+                  {elements.length}
                 </span>
-
-                <AnimatePresence>
-                  {showProgressTooltip && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      className="absolute bottom-full left-0 mb-2 p-2 bg-ink text-[9px] text-white rounded shadow-xl z-50 w-48 border border-gold/20"
-                    >
-                      Прогресс до следующего ранга алхимика ({currentRank.name} → {nextRank?.name || '???'}). 
-                      Открыто {elements.length} элементов.
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+              </h2>
             </div>
             
             <div className="relative w-full md:w-64">
@@ -352,12 +364,12 @@ export const Atelier: React.FC<AtelierProps> = ({
             </div>
           </div>
 
-          <div className="parchment-card p-6 min-h-[200px] bg-sepia/[0.02]">
+          <div className="parchment-card p-4 md:p-6 h-[400px] md:h-[550px] !overflow-y-auto custom-scrollbar bg-sepia/[0.02] shadow-inner relative z-10 touch-pan-y">
             <SortableContext 
               items={filteredElements.map(e => e.id)}
               strategy={rectSortingStrategy}
             >
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 pb-20">
                 {filteredElements.map((element) => (
                   <ElementCard
                     key={element.id}
@@ -492,9 +504,19 @@ export const Atelier: React.FC<AtelierProps> = ({
                 compact 
                 className="w-32 h-32 shadow-2xl gold-glow border-gold/50 rotate-3" 
               />
-              <div className="absolute -top-4 -right-4 bg-gold text-white p-2 rounded-full shadow-lg border border-white/20 animate-bounce">
-                <Grab size={20} />
-              </div>
+              {(activeElement.stability ?? 100) < 80 ? (
+                <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-red-600 text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-lg border border-white/20 whitespace-nowrap z-50">
+                  Нестабильно!
+                </div>
+              ) : ((activeElement.targetTemperature || 0) - (activeElement.temperature || 0)) > 200 ? (
+                <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-lg border border-white/20 whitespace-nowrap z-50">
+                  Слишком холодно!
+                </div>
+              ) : (
+                <div className="absolute -top-4 -right-4 bg-gold text-white p-2 rounded-full shadow-lg border border-white/20 animate-bounce">
+                  <Grab size={20} />
+                </div>
+              )}
             </div>
           ) : null}
         </DragOverlay>

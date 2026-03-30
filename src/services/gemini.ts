@@ -1,7 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AlchemyElement, Rarity, ElementType, ElementState, WorldPhase } from "../types";
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+import { ELEMENT_TYPE_DETAILS, ESSENCE_DETAILS } from "../constants";
 
 const ELEMENT_SCHEMA = {
   type: Type.OBJECT,
@@ -12,12 +11,12 @@ const ELEMENT_SCHEMA = {
         name: { type: Type.STRING, description: "Название нового элемента" },
         description: { type: Type.STRING, description: "Описание в стиле древнего манускрипта" },
         icon: { type: Type.STRING, description: "Один подходящий эмодзи" },
-        rarity: { type: Type.STRING, enum: ["Обычный", "Редкий", "Эпический", "Легендарный", "Запретный"] },
+        rarity: { type: Type.STRING, enum: ["Обычный", "Редкий", "Эпический", "Легендарный", "Мифический", "Божественный", "Вечный", "Космический", "Изначальный", "Трансцендентный"] },
         type: { type: Type.STRING, enum: ["Материя", "Энергия", "Гибрид", "Аномалия"] },
         state: { type: Type.STRING, enum: ["Твердое", "Жидкое", "Газ", "Плазма", "Эфир"] },
         complexity: { type: Type.NUMBER },
         temperature: { type: Type.NUMBER, description: "Текущая температура при создании" },
-        targetTemperature: { type: Type.NUMBER, description: "Идеальная температура для стабильности элемента (от -100 до 1000)" },
+        targetTemperature: { type: Type.NUMBER, description: "Идеальная температура для стабильности элемента (от -273 до 1000). Должна быть уникальной для каждого элемента." },
         stability: { type: Type.NUMBER },
         essences: { type: Type.ARRAY, items: { type: Type.STRING } },
         realityLevel: { type: Type.NUMBER },
@@ -40,6 +39,7 @@ export async function generateNewElement(
   currentLayer: any = null,
   availableLayers: any[] = []
 ): Promise<{ element: AlchemyElement | null, message?: string, isMutation?: boolean, isAlmostGuessed?: boolean }> {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
   const prompt = `
     Ты — ИИ-Алхимик, управляющий Графом Вселенной. Твоя задача — создать результат трансмутации двух элементов.
     
@@ -55,6 +55,12 @@ export async function generateNewElement(
       ? discoveredLaws.map(l => `- ${l.name}: ${l.detail}`).join('\n')
       : 'Законы еще не познаны. Действуй по базовой логике.'}
     
+    ТИПЫ ЭЛЕМЕНТОВ (ВЛИЯНИЕ):
+    ${Object.entries(ELEMENT_TYPE_DETAILS).map(([type, details]) => `- ${type}: ${details.influence}`).join('\n')}
+    
+    ЭССЕНЦИИ (ВЛИЯНИЕ):
+    ${Object.entries(ESSENCE_DETAILS).map(([essence, details]) => `- ${essence}: ${details.influence}`).join('\n')}
+    
     ГРАФ ВСЕЛЕННОЙ:
     - Все элементы — узлы. Связи — рецепты.
     - Текущие открытые элементы: ${existingElements.map(e => `${e.name} (ID: ${e.id}, Слой: ${e.realityLevel})`).join(', ')}.
@@ -69,11 +75,16 @@ export async function generateNewElement(
     - СЛОЙ 3+ (30+ элементов): Редкость, мутации, нестабильность.
     
     СИСТЕМА РЕДКОСТИ (шансы):
-    - Обычный: 60%
-    - Редкий: 25%
-    - Эпический: 10%
-    - Легендарный: 4%
-    - Запретный: 1%
+    - Обычный: 40%
+    - Редкий: 20%
+    - Эпический: 15%
+    - Легендарный: 10%
+    - Мифический: 5%
+    - Божественный: 4%
+    - Вечный: 3%
+    - Космический: 2%
+    - Изначальный: 0.9%
+    - Трансцендентный: 0.1%
     
     МУТАЦИИ (шанс 5-10%):
     - Вместо обычного результата (например, "Пар") создай что-то живое или аномальное (например, "Живой пар", "Эфирный туман").

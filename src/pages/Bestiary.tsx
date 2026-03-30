@@ -1,10 +1,16 @@
-import React, { useState } from 'react';
-import { AlchemyElement, Rarity, ElementType } from '../types';
+import React, { useState, useMemo } from 'react';
+import { AlchemyElement, Rarity, ElementType, Essence } from '../types';
 import { ElementCard } from '../components/ElementCard';
 import { ElementDetailsModal } from '../components/ElementDetailsModal';
-import { Search, Trash2, X } from 'lucide-react';
+import { Search, Trash2, X, Filter, BarChart3, Calendar, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { INITIAL_ELEMENTS } from '../constants';
+import { INITIAL_ELEMENTS, translateEssence } from '../constants';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 
 interface BestiaryProps {
   elements: AlchemyElement[];
@@ -16,15 +22,50 @@ export const Bestiary: React.FC<BestiaryProps> = ({ elements, onDelete, onSelect
   const [search, setSearch] = useState('');
   const [rarityFilter, setRarityFilter] = useState<Rarity | 'All'>('All');
   const [typeFilter, setTypeFilter] = useState<ElementType | 'All'>('All');
+  const [essenceFilter, setEssenceFilter] = useState<Essence | 'All'>('All');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(100);
 
   const [elementToDelete, setElementToDelete] = useState<string | null>(null);
 
   const filteredElements = elements.filter(e => {
+    if (!e) return false;
     const matchesSearch = e.name.toLowerCase().includes(search.toLowerCase());
     const matchesRarity = rarityFilter === 'All' || e.rarity === rarityFilter;
     const matchesType = typeFilter === 'All' || e.type === typeFilter;
-    return matchesSearch && matchesRarity && matchesType;
+    const matchesEssence = essenceFilter === 'All' || (e.essences && e.essences.includes(essenceFilter as Essence));
+    return matchesSearch && matchesRarity && matchesType && matchesEssence;
   });
+
+  // Reset page when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [search, rarityFilter, typeFilter, essenceFilter, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredElements.length / itemsPerPage);
+  const paginatedElements = filteredElements.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const stats = useMemo(() => {
+    const now = Date.now();
+    const oneDay = 24 * 60 * 60 * 1000;
+    const validElements = elements.filter(e => e !== null);
+    const newElements = validElements.filter(e => (now - e.discoveredAt) < oneDay).length;
+    
+    const byDate: Record<string, number> = {};
+    validElements.forEach(e => {
+      const date = new Date(e.discoveredAt).toLocaleDateString();
+      byDate[date] = (byDate[date] || 0) + 1;
+    });
+
+    const sortedDates = Object.entries(byDate)
+      .sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime())
+      .slice(0, 5);
+
+    return { newElements, sortedDates };
+  }, [elements]);
 
   return (
     <motion.div 
@@ -33,68 +74,141 @@ export const Bestiary: React.FC<BestiaryProps> = ({ elements, onDelete, onSelect
       exit={{ opacity: 0, x: 20 }}
       className="flex flex-col gap-6"
     >
-      <div className="flex flex-col lg:flex-row gap-6 items-center justify-between parchment-card p-6 bg-sepia/[0.02]">
-        <div className="relative w-full lg:w-96">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-sepia/40" size={18} />
-          <input
-            type="text"
-            placeholder="Поиск по названию..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-10 py-3 bg-transparent border-b border-sepia/20 focus:border-gold outline-none text-base font-serif italic"
-          />
-          {search && (
-            <button 
-              onClick={() => setSearch('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-sepia/40 hover:text-sepia"
-            >
-              <X size={18} />
-            </button>
-          )}
+      {/* Stats & Counters Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="parchment-card p-4 bg-gold/5 border-gold/20 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center text-gold border border-gold/30">
+            <Sparkles size={24} />
+          </div>
+          <div>
+            <div className="text-[10px] uppercase font-bold text-gold tracking-widest">Новые открытия</div>
+            <div className="text-2xl font-gothic tracking-widest">{stats.newElements} <span className="text-xs font-serif italic text-sepia/60">за 24ч</span></div>
+          </div>
         </div>
         
-        <div className="flex flex-wrap gap-4 w-full lg:w-auto justify-center lg:justify-end">
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-widest text-sepia/40 font-bold ml-1">Редкость</span>
-            <select 
-              value={rarityFilter}
-              onChange={(e) => setRarityFilter(e.target.value as any)}
-              className="bg-parchment border border-sepia/20 rounded px-3 py-2 text-sm outline-none focus:border-gold min-w-[140px]"
-            >
-              <option value="All">Все редкости</option>
-              <option value="Обычный">Обычный</option>
-              <option value="Редкий">Редкий</option>
-              <option value="Эпический">Эпический</option>
-              <option value="Легендарный">Легендарный</option>
-              <option value="Запретный">Запретный</option>
-            </select>
+        <div className="parchment-card p-4 bg-sepia/5 border-sepia/20 flex flex-col gap-2">
+          <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-sepia/40 tracking-widest mb-1">
+            <Calendar size={12} />
+            История открытий
           </div>
+          <div className="flex gap-4 overflow-x-auto pb-1 custom-scrollbar">
+            {stats.sortedDates.map(([date, count]) => (
+              <div key={date} className="flex flex-col items-center min-w-[60px]">
+                <div className="text-[10px] font-bold text-gold">{count}</div>
+                <div className="text-[8px] text-sepia/60 uppercase tracking-tighter">{date}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
 
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-widest text-sepia/40 font-bold ml-1">Тип</span>
-            <select 
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value as any)}
-              className="bg-parchment border border-sepia/20 rounded px-3 py-2 text-sm outline-none focus:border-gold min-w-[140px]"
-            >
-              <option value="All">Все типы</option>
-              <option value="Материя">Материя</option>
-              <option value="Энергия">Энергия</option>
-              <option value="Гибрид">Гибрид</option>
-              <option value="Аномалия">Аномалия</option>
-            </select>
+      <div className="flex flex-col gap-6 parchment-card p-6 bg-sepia/[0.02]">
+        <div className="flex flex-col lg:flex-row gap-6 items-center justify-between">
+          <div className="relative w-full lg:w-96">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-sepia/40" size={18} />
+            <input
+              type="text"
+              placeholder="Поиск по названию..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-10 py-3 bg-transparent border-b border-sepia/20 focus:border-gold outline-none text-base font-serif italic"
+            />
+            {search && (
+              <button 
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-sepia/40 hover:text-sepia"
+              >
+                <X size={18} />
+              </button>
+            )}
+          </div>
+          
+          <div className="flex flex-wrap gap-4 w-full lg:w-auto justify-center lg:justify-end">
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-widest text-sepia/40 font-bold ml-1">Показывать</span>
+              <select 
+                value={itemsPerPage}
+                onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                className="bg-parchment border border-sepia/20 rounded px-3 py-2 text-sm outline-none focus:border-gold min-w-[100px]"
+              >
+                <option value={100}>100</option>
+                <option value={500}>500</option>
+                <option value={1000}>1000</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-widest text-sepia/40 font-bold ml-1">Редкость</span>
+              <select 
+                value={rarityFilter}
+                onChange={(e) => setRarityFilter(e.target.value as any)}
+                className="bg-parchment border border-sepia/20 rounded px-3 py-2 text-sm outline-none focus:border-gold min-w-[140px]"
+              >
+                <option value="All">Все редкости</option>
+                <option value="Обычный">Обычный</option>
+                <option value="Редкий">Редкий</option>
+                <option value="Эпический">Эпический</option>
+                <option value="Легендарный">Легендарный</option>
+                <option value="Мифический">Мифический</option>
+                <option value="Божественный">Божественный</option>
+                <option value="Вечный">Вечный</option>
+                <option value="Космический">Космический</option>
+                <option value="Изначальный">Изначальный</option>
+                <option value="Трансцендентный">Трансцендентный</option>
+                <option value="Запретный">Запретный</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-widest text-sepia/40 font-bold ml-1">Тип</span>
+              <select 
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value as any)}
+                className="bg-parchment border border-sepia/20 rounded px-3 py-2 text-sm outline-none focus:border-gold min-w-[140px]"
+              >
+                <option value="All">Все типы</option>
+                <option value="Материя">Материя</option>
+                <option value="Энергия">Энергия</option>
+                <option value="Гибрид">Гибрид</option>
+                <option value="Аномалия">Аномалия</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-widest text-sepia/40 font-bold ml-1">Эссенция</span>
+              <select 
+                value={essenceFilter}
+                onChange={(e) => setEssenceFilter(e.target.value as any)}
+                className="bg-parchment border border-sepia/20 rounded px-3 py-2 text-sm outline-none focus:border-gold min-w-[140px]"
+              >
+                <option value="All">Все эссенции</option>
+                <option value="life">{translateEssence('life')}</option>
+                <option value="death">{translateEssence('death')}</option>
+                <option value="chaos">{translateEssence('chaos')}</option>
+                <option value="order">{translateEssence('order')}</option>
+                <option value="void">{translateEssence('void')}</option>
+                <option value="creation">{translateEssence('creation')}</option>
+                <option value="destruction">{translateEssence('destruction')}</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        {filteredElements.map((element) => (
+        {paginatedElements.map((element) => (
           <div key={element.id} className="relative group">
             <ElementCard 
               element={element} 
               onClick={() => onSelectElement(element)}
               className="h-full"
             />
+            {/* New Badge */}
+            {(Date.now() - element.discoveredAt) < (24 * 60 * 60 * 1000) && (
+              <div className="absolute -top-2 -left-2 bg-gold text-white text-[8px] font-bold px-2 py-0.5 rounded-full shadow-lg z-10 animate-bounce">
+                NEW
+              </div>
+            )}
             {!INITIAL_ELEMENTS.some(ie => ie.id === element.id) && (
               <button
                 onClick={(e) => {
@@ -110,6 +224,43 @@ export const Bestiary: React.FC<BestiaryProps> = ({ elements, onDelete, onSelect
           </div>
         ))}
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-2 mt-8">
+          <button
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            className="p-2 border border-sepia/20 rounded disabled:opacity-20 hover:bg-sepia/5 transition-colors"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          
+          <div className="flex gap-1 overflow-x-auto max-w-[200px] sm:max-w-none custom-scrollbar pb-1">
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={cn(
+                  "w-8 h-8 flex items-center justify-center rounded text-xs font-bold transition-all shrink-0",
+                  currentPage === page 
+                    ? "bg-gold text-white shadow-lg" 
+                    : "border border-sepia/20 text-sepia hover:bg-sepia/5"
+                )}
+              >
+                {page}
+              </button>
+            ))}
+          </div>
+
+          <button
+            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            className="p-2 border border-sepia/20 rounded disabled:opacity-20 hover:bg-sepia/5 transition-colors"
+          >
+            <ChevronRight size={20} />
+          </button>
+        </div>
+      )}
 
       {filteredElements.length === 0 && (
         <div className="text-center py-32 opacity-40 italic font-serif text-xl">

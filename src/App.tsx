@@ -3,14 +3,14 @@ import { AlchemyElement, WorldPhase, CombinationResult } from './types';
 import { INITIAL_ELEMENTS, calculateRank, HIDDEN_LAWS, REALITY_LAYERS, STABILITY_DECAY_INTERVAL, TEMPERATURE_DECAY_INTERVAL } from './constants';
 import { Atelier } from './pages/Atelier';
 import { Bestiary } from './pages/Bestiary';
-import { Chronicle } from './pages/Chronicle';
+import { Profile } from './pages/Profile';
 import { Arcana } from './pages/Arcana';
 import { Maintenance } from './pages/Maintenance';
 import { ElementDetailsModal } from './components/ElementDetailsModal';
 import { ElementCard } from './components/ElementCard';
 import { VortexAnimation, MagicParticles, RareFlash } from './components/Animations';
 import { motion, AnimatePresence } from 'motion/react';
-import { Book, FlaskConical, History, Settings as SettingsIcon, Sparkles, X, Hammer, Thermometer } from 'lucide-react';
+import { Book, FlaskConical, History, Settings as SettingsIcon, Sparkles, X, Hammer, Thermometer, AlertCircle, Zap, Coins, User } from 'lucide-react';
 import { generateNewElement } from './services/gemini';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -24,15 +24,31 @@ export default function App() {
     const saved = localStorage.getItem('aihim_elements');
     if (!saved) return INITIAL_ELEMENTS;
     
-    const parsed = JSON.parse(saved);
-    // Migration: If elements are in English (e.g., name is "Water"), reset to INITIAL_ELEMENTS
-    const isEnglish = parsed.some((e: any) => e.id === 'water' && e.name === 'Water');
-    if (isEnglish) {
-      localStorage.removeItem('aihim_elements');
-      localStorage.removeItem('aihim_history');
+    try {
+      const parsed = JSON.parse(saved);
+      // Filter out any null/undefined elements that might have been saved
+      const validElements = Array.isArray(parsed) ? parsed.filter((e): e is AlchemyElement => e !== null && typeof e === 'object' && !!e.id) : INITIAL_ELEMENTS;
+      
+      // Migration: If elements are in English (e.g., name is "Water"), reset to INITIAL_ELEMENTS
+      const isEnglish = validElements.some((e: any) => e.id === 'water' && e.name === 'Water');
+      if (isEnglish) {
+        localStorage.removeItem('aihim_elements');
+        localStorage.removeItem('aihim_history');
+        return INITIAL_ELEMENTS;
+      }
+      
+      // Migration: Ensure all elements have targetTemperature
+      return validElements.map((e: any) => {
+        if (e.targetTemperature === undefined || e.targetTemperature === 0) {
+          const initial = INITIAL_ELEMENTS.find(ie => ie.id === e.id);
+          if (initial) return { ...e, targetTemperature: initial.targetTemperature };
+          return { ...e, targetTemperature: e.temperature || 0 };
+        }
+        return e;
+      });
+    } catch (e) {
       return INITIAL_ELEMENTS;
     }
-    return parsed;
   });
 
   const [history, setHistory] = useState<any[]>(() => {
@@ -40,7 +56,18 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const [activeTab, setActiveTab] = useState<'atelier' | 'bestiary' | 'chronicle' | 'arcana' | 'maintenance'>('atelier');
+  const [activeTab, setActiveTab] = useState<'atelier' | 'bestiary' | 'profile' | 'arcana' | 'maintenance'>('atelier');
+  const [aihim, setAihim] = useState<number>(() => {
+    const saved = localStorage.getItem('aihim_energy');
+    return saved ? parseInt(saved) : 1000000;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('aihim_energy', aihim.toString());
+  }, [aihim]);
+
+  const [stabilityWarning, setStabilityWarning] = useState<AlchemyElement | null>(null);
+  const [temperatureWarning, setTemperatureWarning] = useState<AlchemyElement | null>(null);
   const [isCombining, setIsCombining] = useState(false);
   const [combinationResult, setCombinationResult] = useState<AlchemyElement | null>(null);
   const [worldPhase, setWorldPhase] = useState<WorldPhase>('day');
@@ -50,8 +77,37 @@ export default function App() {
   const [slotA, setSlotA] = useState<AlchemyElement | null>(null);
   const [slotB, setSlotB] = useState<AlchemyElement | null>(null);
   const [maintenanceElementId, setMaintenanceElementId] = useState<string | null>(null);
+  const [isShopOpen, setIsShopOpen] = useState(false);
   const [cancelTimer, setCancelTimer] = useState(25);
   const [phaseTimer, setPhaseTimer] = useState(300);
+  const [regenTimer, setRegenTimer] = useState(60);
+  
+  const handleTrySetSlot = (element: AlchemyElement | null, slot: 'A' | 'B') => {
+    if (!element) {
+      if (slot === 'A') setSlotA(null);
+      else setSlotB(null);
+      return;
+    }
+
+    // Stability Check: Minimum 80% required
+    if ((element.stability ?? 100) < 80) {
+      setStabilityWarning(element);
+      return;
+    }
+
+    // Temperature Check: Synthesis impossible if current temp is > 200 degrees below target
+    const tempDiff = (element.targetTemperature || 0) - (element.temperature || 0);
+    if (tempDiff > 200) {
+      setTemperatureWarning(element);
+      return;
+    }
+
+    if (slot === 'A') {
+      if (slotB?.id !== element.id) setSlotA(element);
+    } else {
+      if (slotA?.id !== element.id) setSlotB(element);
+    }
+  };
 
   // Timer for combination
   useEffect(() => {
@@ -72,16 +128,13 @@ export default function App() {
       setDiscoveredElements(current => {
         let hasChanged = false;
         const nextElements = current.map(el => {
-          // Initial elements don't decay
-          if (INITIAL_ELEMENTS.some(ie => ie.id === el.id)) return el;
-          
           let updatedEl = { ...el };
           
           // Stability Decay
           const sIntervalMs = (STABILITY_DECAY_INTERVAL[el.rarity] || 60) * 1000;
           const lastSDecay = el.lastDecayAt || el.discoveredAt;
           
-          if (now - lastSDecay >= sIntervalMs) {
+          if (updatedEl.stability > 0 && now - lastSDecay >= sIntervalMs) {
             hasChanged = true;
             updatedEl = { 
               ...updatedEl, 
@@ -96,11 +149,21 @@ export default function App() {
 
           if (now - lastTDecay >= tIntervalMs) {
             hasChanged = true;
-            updatedEl = {
-              ...updatedEl,
-              temperature: Math.max(-100, (updatedEl.temperature ?? 0) - 1),
-              lastTempDecayAt: now
-            };
+            
+            // Day and Night Law: If day and stability > 0, free heating instead of cooling
+            if (worldPhase === 'day' && updatedEl.stability > 0) {
+              updatedEl = {
+                ...updatedEl,
+                temperature: (updatedEl.temperature ?? 0) + 1,
+                lastTempDecayAt: now
+              };
+            } else {
+              updatedEl = {
+                ...updatedEl,
+                temperature: Math.max(-273, (updatedEl.temperature ?? 0) - 1),
+                lastTempDecayAt: now
+              };
+            }
           }
           
           return updatedEl;
@@ -109,7 +172,7 @@ export default function App() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [worldPhase]);
 
   // Phase Timer
   useEffect(() => {
@@ -118,6 +181,20 @@ export default function App() {
         if (prev <= 1) {
           setWorldPhase(current => current === 'day' ? 'night' : 'day');
           return 300;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // AiHim Auto-Regeneration
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRegenTimer(prev => {
+        if (prev <= 1) {
+          setAihim(a => a + 100);
+          return 60;
         }
         return prev - 1;
       });
@@ -134,9 +211,19 @@ export default function App() {
   }, [history]);
 
   const handleCombine = async (elementA: AlchemyElement, elementB: AlchemyElement) => {
+    if (!elementA || !elementB) return;
     const now = Date.now();
     if (now - lastCombinationTime < 3000) {
       setAlchemyMessage("Тигель ещё не остыл... Подождите несколько секунд.");
+      return;
+    }
+
+    // Temperature Check: Synthesis impossible if current temp is > 200 degrees below target
+    const tempDiffA = (elementA.targetTemperature || 0) - (elementA.temperature || 0);
+    const tempDiffB = (elementB.targetTemperature || 0) - (elementB.temperature || 0);
+
+    if (tempDiffA > 200 || tempDiffB > 200) {
+      setAlchemyMessage("Температура одного из элементов слишком низка для трансмутации! Разница с нормой превышает 200°C.");
       return;
     }
 
@@ -146,15 +233,13 @@ export default function App() {
 
     try {
       const discoveredLaws = HIDDEN_LAWS.filter(law => {
-        if (law.id === 'temp') return discoveredElements.some(e => (e.temperature || 0) > 500);
-        if (law.id === 'opp') return discoveredElements.some(e => e.essences?.includes('void')) && discoveredElements.some(e => e.essences?.includes('creation'));
-        if (law.id === 'life') return discoveredElements.some(e => e.essences?.includes('life'));
-        if (law.id === 'time') return discoveredElements.length > 20;
+        if (law.id === 'temp') return discoveredElements.some(e => (e.temperature ?? 0) < (e.targetTemperature ?? 0) - 200);
+        if (law.id === 'stab') return discoveredElements.some(e => (e.stability ?? 100) <= 0);
         return false;
       });
 
       const existing = discoveredElements.find(e => 
-        e.parents && (
+        e && e.parents && (
           (e.parents[0] === elementA.id && e.parents[1] === elementB.id) ||
           (e.parents[0] === elementB.id && e.parents[1] === elementA.id)
         )
@@ -174,7 +259,7 @@ export default function App() {
         return;
       }
 
-      const maxReality = Math.max(1, ...discoveredElements.map(e => e.realityLevel || 1));
+      const maxReality = Math.max(1, ...discoveredElements.map(e => (e && e.realityLevel) || 1));
       const currentLayer = REALITY_LAYERS.find(l => l.level === maxReality) || REALITY_LAYERS[0];
       
       // Calculate which layers are "available" for discovery
@@ -182,8 +267,8 @@ export default function App() {
         if (layer.level <= maxReality) return true;
         if (layer.level === maxReality + 1) {
           const prevLayerNewElements = discoveredElements.filter(e => 
-            e.realityLevel === layer.level - 1 && 
-            !INITIAL_ELEMENTS.some(ie => ie.id === e.id)
+            e && e.realityLevel === layer.level - 1 && 
+            !INITIAL_ELEMENTS.some(ie => ie && ie.id === e.id)
           ).length;
           
           if (layer.level === 2) return prevLayerNewElements >= 10;
@@ -260,15 +345,15 @@ export default function App() {
       alert("Первоначальные элементы нельзя удалить!");
       return;
     }
-    setDiscoveredElements(prev => prev.filter(e => e.id !== id));
-    setHistory(prev => prev.filter(h => h.result.id !== id));
+    setDiscoveredElements(prev => prev.filter(e => e && e.id !== id));
+    setHistory(prev => prev.filter(h => h && h.result && h.result.id !== id));
   };
 
   const navItems = [
     { id: 'atelier', icon: FlaskConical, label: 'Стол' },
     { id: 'bestiary', icon: Book, label: 'Бестиарий' },
     { id: 'maintenance', icon: Hammer, label: 'Кузня' },
-    { id: 'chronicle', icon: History, label: 'Хроника' },
+    { id: 'profile', icon: User, label: 'Алхимик' },
     { id: 'arcana', icon: SettingsIcon, label: 'Арканы' },
   ];
 
@@ -296,15 +381,11 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col max-w-5xl mx-auto px-4 pb-24 md:pb-12 pt-6">
-      {/* Header Navigation - Always Visible */}
-      <header className={`flex flex-col md:flex-row items-center justify-between gap-4 relative z-[400] transition-all duration-300 ${
-        activeTab === 'atelier' ? 'mb-0 pb-0 border-none' : 'mb-8 pb-4 border-b border-sepia/10'
-      }`}>
+    <div className="min-h-screen flex flex-col max-w-5xl mx-auto px-4 pb-24 md:pb-12 pt-6 overflow-y-auto">
+      {/* Header Navigation - Always Visible on PC, Hidden on Mobile */}
+      <header className="hidden md:flex flex-col md:flex-row items-center justify-between gap-4 relative z-[400] mb-8 pb-4 border-b border-sepia/10">
         <div 
-          className={`flex items-center gap-3 cursor-pointer group transition-all duration-300 ${
-            activeTab === 'atelier' ? 'opacity-0 -translate-x-10 pointer-events-none' : 'opacity-100 translate-x-0'
-          }`}
+          className="flex items-center gap-3 cursor-pointer group transition-all duration-300"
           onClick={() => setActiveTab('atelier')}
         >
           <motion.img 
@@ -318,7 +399,7 @@ export default function App() {
           </div>
         </div>
         
-        <div className={activeTab === 'atelier' ? 'w-full flex justify-center' : ''}>
+        <div className="flex-1 flex justify-center">
           {renderNav(false)}
         </div>
       </header>
@@ -343,8 +424,6 @@ export default function App() {
                   alt="AIhim Grand Logo" 
                   className="h-32 md:h-48 object-contain mb-4 drop-shadow-2xl"
                 />
-                <h1 className="font-gothic text-4xl text-sepia tracking-widest">АТЕЛЬЕ</h1>
-                <p className="text-sepia italic text-sm opacity-70 mt-2">Место, где рождается материя...</p>
               </div>
 
               <Atelier 
@@ -361,9 +440,11 @@ export default function App() {
                 }}
                 onSelectElement={setSelectedElement}
                 slotA={slotA}
-                setSlotA={setSlotA}
+                setSlotA={(el) => el === null ? setSlotA(null) : handleTrySetSlot(el as AlchemyElement, 'A')}
                 slotB={slotB}
-                setSlotB={setSlotB}
+                setSlotB={(el) => el === null ? setSlotB(null) : handleTrySetSlot(el as AlchemyElement, 'B')}
+                aihim={aihim}
+                onOpenShop={() => setIsShopOpen(true)}
               />
             </motion.div>
           )}
@@ -401,24 +482,30 @@ export default function App() {
                 setElements={setDiscoveredElements}
                 initialElementId={maintenanceElementId}
                 onClearInitial={() => setMaintenanceElementId(null)}
+                aihim={aihim}
+                setAihim={setAihim}
+                onOpenShop={() => setIsShopOpen(true)}
+                regenTimer={regenTimer}
               />
             </motion.div>
           )}
 
-          {activeTab === 'chronicle' && (
+          {activeTab === 'profile' && (
             <motion.div
-              key="chronicle-page"
+              key="profile-page"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.3 }}
             >
               <div className="mb-8">
-                <h1 className="font-gothic text-3xl text-sepia tracking-widest">ХРОНИКА</h1>
-                <p className="text-sepia italic text-sm opacity-70">История ваших великих свершений</p>
+                <h1 className="font-gothic text-3xl text-sepia tracking-widest">АЛХИМИК</h1>
+                <p className="text-sepia italic text-sm opacity-70">Ваш путь к истинному знанию</p>
               </div>
-              <Chronicle 
-                history={history} 
+              <Profile 
+                elements={discoveredElements}
+                history={history}
+                aihim={aihim}
               />
             </motion.div>
           )}
@@ -437,11 +524,14 @@ export default function App() {
               </div>
               <Arcana 
                 elements={discoveredElements}
+                aihim={aihim}
+                setAihim={setAihim}
                 onReset={() => {
                   setDiscoveredElements(INITIAL_ELEMENTS);
                   setHistory([]);
                   setIsCombining(false);
                   setAlchemyMessage(null);
+                  setAihim(1000000);
                   localStorage.clear();
                 }}
               />
@@ -646,18 +736,20 @@ export default function App() {
         element={selectedElement} 
         onClose={() => setSelectedElement(null)} 
         onMaintenance={(element) => {
+          if (!element) return;
           setMaintenanceElementId(element.id);
           setActiveTab('maintenance');
           setSelectedElement(null);
         }}
         onUse={(element) => {
+          if (!element) return;
           if (activeTab !== 'atelier') {
             setActiveTab('atelier');
           }
           
           if (!slotA) {
             setSlotA(element);
-          } else if (!slotB && slotA.id !== element.id) {
+          } else if (!slotB && slotA && slotA.id !== element.id) {
             setSlotB(element);
           } else {
             // If both full or same as A, replace A
@@ -668,13 +760,168 @@ export default function App() {
       />
 
       {/* Footer / Stats */}
-      <footer className="mt-8 pt-4 border-t border-sepia/10 flex justify-between items-center text-[10px] uppercase tracking-widest font-bold text-sepia/60">
-        <div>Открыто: {discoveredElements.length} элементов</div>
-        <div className="flex items-center gap-1">
-          <Sparkles size={12} className="text-gold" />
-          <span>Ранг: {calculateRank(discoveredElements.length).currentRank.name}</span>
-        </div>
+      <footer className="mt-8 pt-4 border-t border-sepia/10 flex justify-center items-center text-[10px] uppercase tracking-widest font-bold text-sepia/60">
+        <div className="opacity-40 italic">Путь алхимика бесконечен...</div>
       </footer>
+
+      {/* Shop Modal */}
+      <AnimatePresence>
+        {/* Stability Warning Modal */}
+        {stabilityWarning && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[4000] flex items-center justify-center p-4 bg-ink/60 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              className="relative w-full max-w-sm parchment-card p-8 shadow-2xl border-red-900/40"
+            >
+              <button 
+                onClick={() => setStabilityWarning(null)}
+                className="absolute top-4 right-4 text-sepia/40 hover:text-sepia transition-colors"
+              >
+                <X size={20} />
+              </button>
+              
+              <div className="flex flex-col items-center text-center gap-6">
+                <div className="w-16 h-16 rounded-full bg-red-900/10 flex items-center justify-center text-red-900">
+                  <AlertCircle size={32} />
+                </div>
+                <h3 className="font-gothic text-xl text-red-900 uppercase tracking-widest">Нестабильность!</h3>
+                <p className="text-sm font-serif italic text-sepia leading-relaxed">
+                  Сущность "{stabilityWarning.name}" слишком нестабильна ({stabilityWarning.stability}%). 
+                  Для трансмутации требуется минимум 80% стабильности. 
+                  Восстановите её в Кузне!
+                </p>
+                <button
+                  onClick={() => {
+                    setMaintenanceElementId(stabilityWarning.id);
+                    setActiveTab('maintenance');
+                    setStabilityWarning(null);
+                  }}
+                  className="w-full bg-red-900 text-white py-3 rounded-full font-gothic tracking-widest shadow-lg"
+                >
+                  В КУЗНЮ
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* Temperature Warning Modal */}
+        {temperatureWarning && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[4000] flex items-center justify-center p-4 bg-ink/60 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              className="relative w-full max-w-sm parchment-card p-8 shadow-2xl border-blue-900/40"
+            >
+              <button 
+                onClick={() => setTemperatureWarning(null)}
+                className="absolute top-4 right-4 text-sepia/40 hover:text-sepia transition-colors"
+              >
+                <X size={20} />
+              </button>
+              
+              <div className="flex flex-col items-center text-center gap-6">
+                <div className="w-16 h-16 rounded-full bg-blue-900/10 flex items-center justify-center text-blue-900">
+                  <Thermometer size={32} />
+                </div>
+                <h3 className="font-gothic text-xl text-blue-900 uppercase tracking-widest">Холодная Сущность!</h3>
+                <p className="text-sm font-serif italic text-sepia leading-relaxed">
+                  Температура "{temperatureWarning.name}" слишком низка ({temperatureWarning.temperature}°C). 
+                  Разница с нормой ({temperatureWarning.targetTemperature}°C) превышает 200°C. 
+                  Разогрейте её в Кузне!
+                </p>
+                <button
+                  onClick={() => {
+                    setMaintenanceElementId(temperatureWarning.id);
+                    setActiveTab('maintenance');
+                    setTemperatureWarning(null);
+                  }}
+                  className="w-full bg-blue-900 text-white py-3 rounded-full font-gothic tracking-widest shadow-lg"
+                >
+                  В КУЗНЮ
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {isShopOpen && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsShopOpen(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="parchment-card max-w-md w-full p-8 relative z-10 border-2 border-gold shadow-[0_0_50px_rgba(212,175,55,0.3)]"
+            >
+              <button 
+                onClick={() => setIsShopOpen(false)}
+                className="absolute top-4 right-4 text-sepia/40 hover:text-sepia transition-colors"
+              >
+                <X size={24} />
+              </button>
+
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 bg-gold/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-gold/30">
+                  <Zap size={32} className="text-gold" />
+                </div>
+                <h2 className="font-gothic text-3xl text-gold mb-2">МАГАЗИН ЭНЕРГИИ</h2>
+                <p className="font-serif italic text-sepia/60">AiHim — топливо для ваших великих свершений</p>
+              </div>
+
+              <div className="space-y-4">
+                {[
+                  { amount: 100, price: 1 },
+                  { amount: 1000, price: 10 },
+                  { amount: 10000, price: 100 },
+                  { amount: 100000, price: 1000 },
+                ].map((pack) => (
+                  <button
+                    key={pack.amount}
+                    onClick={() => {
+                      setAihim(prev => prev + pack.amount);
+                      setAlchemyMessage(`Приобретено ${pack.amount} AiHim!`);
+                      setIsShopOpen(false);
+                    }}
+                    className="w-full p-4 border border-sepia/20 rounded-lg flex items-center justify-between hover:border-gold hover:bg-gold/5 transition-all group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Zap size={20} className="text-gold group-hover:scale-110 transition-transform" />
+                      <div className="text-left">
+                        <div className="font-bold text-sepia">{pack.amount.toLocaleString()} AiHim</div>
+                        <div className="text-[10px] text-sepia/40 uppercase tracking-widest">Энергетический пакет</div>
+                      </div>
+                    </div>
+                    <div className="font-gothic text-xl text-gold">{pack.price} ₽</div>
+                  </button>
+                ))}
+              </div>
+
+              <p className="mt-8 text-[9px] text-center text-sepia/40 uppercase tracking-tighter leading-relaxed">
+                * Внимание: Покупка за рубли является имитацией для игрового процесса. <br />
+                Нажатие на кнопку мгновенно начисляет энергию.
+              </p>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

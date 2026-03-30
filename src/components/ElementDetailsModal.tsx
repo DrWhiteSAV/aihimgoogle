@@ -1,8 +1,8 @@
 import React from 'react';
 import { AlchemyElement } from '../types';
-import { translateEssence, RARITY_COLORS, STABILITY_DECAY_INTERVAL } from '../constants';
+import { translateEssence, RARITY_COLORS, STABILITY_DECAY_INTERVAL, TEMPERATURE_DECAY_INTERVAL } from '../constants';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Sparkles, Hammer } from 'lucide-react';
+import { X, Sparkles, Hammer, Thermometer, Shield } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -23,33 +23,39 @@ export const ElementDetailsModal: React.FC<ElementDetailsModalProps> = ({ elemen
   React.useEffect(() => {
     if (!element) return;
     
-    // Initial elements don't decay
-    const INITIAL_IDS = ['water', 'fire', 'earth', 'air', 'metal', 'energy', 'crystal', 'darkness', 'light', 'organics'];
-    if (INITIAL_IDS.includes(element.id)) {
-      setTimeLeft(null);
-      return;
-    }
-
     const updateTimer = () => {
       const now = Date.now();
-      const intervalMs = (STABILITY_DECAY_INTERVAL[element.rarity] || 60) * 1000;
-      const lastDecay = element.lastDecayAt || element.discoveredAt;
-      const remaining = Math.max(0, Math.ceil((intervalMs - (now - lastDecay)) / 1000));
-      setTimeLeft(remaining);
+      
+      const sIntervalMs = (STABILITY_DECAY_INTERVAL[element.rarity] || 60) * 1000;
+      const tIntervalMs = (TEMPERATURE_DECAY_INTERVAL[element.rarity] || 60) * 1000;
+      
+      const lastSDecay = element.lastDecayAt || element.discoveredAt;
+      const lastTDecay = element.lastTempDecayAt || element.discoveredAt;
+      
+      const sRemaining = Math.max(0, Math.ceil((sIntervalMs - (now - lastSDecay)) / 1000));
+      const tRemaining = Math.max(0, Math.ceil((tIntervalMs - (now - lastTDecay)) / 1000));
+      
+      if ((element.stability ?? 100) <= 0) {
+        if ((element.temperature ?? 0) <= -273) {
+          setTimeLeft(null);
+        } else {
+          setTimeLeft(tRemaining);
+        }
+      } else {
+        setTimeLeft(Math.min(sRemaining, tRemaining));
+      }
     };
 
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
 
     return () => clearInterval(interval);
-  }, [element]);
+  }, [element?.id, element?.lastDecayAt, element?.lastTempDecayAt, element?.discoveredAt, element?.rarity, element?.stability, element?.temperature]);
 
   const formatTime = (seconds: number) => {
-    if (seconds < 60) return `${seconds}s`;
     const mins = Math.floor(seconds / 60);
-    if (mins < 60) return `${mins}m ${seconds % 60}s`;
-    const hours = Math.floor(mins / 60);
-    return `${hours}h ${mins % 60}m`;
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   if (!element) return null;
@@ -80,12 +86,27 @@ export const ElementDetailsModal: React.FC<ElementDetailsModalProps> = ({ elemen
           <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-gold/40 pointer-events-none" />
           <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-gold/40 pointer-events-none" />
 
+          {/* Frost Effect */}
+          {(element.stability ?? 100) <= 0 && (element.temperature ?? 0) <= -273 && (
+            <div className="absolute inset-0 pointer-events-none z-20 overflow-hidden rounded-inherit">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-100/40 via-transparent to-blue-200/40 backdrop-blur-[1px]" />
+              <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_center,_white_2px,_transparent_2px)] bg-[size:8px_8px]" />
+              <div className="absolute inset-0 border-4 border-blue-100/50 rounded-inherit" />
+            </div>
+          )}
+
           <button 
             onClick={onClose}
             className="absolute top-4 right-4 text-sepia/40 hover:text-sepia transition-colors z-10"
           >
             <X size={24} />
           </button>
+
+          {timeLeft !== null && (
+            <div className="absolute top-1 left-1/2 -translate-x-1/2 text-[12px] font-mono text-ink/60 font-bold uppercase tracking-widest">
+              Цикл: {formatTime(timeLeft)}
+            </div>
+          )}
 
           <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
             <div className="flex flex-col items-center text-center gap-4">
@@ -130,16 +151,13 @@ export const ElementDetailsModal: React.FC<ElementDetailsModalProps> = ({ elemen
                   <span>Температура</span>
                   <div className="flex flex-col items-center">
                     <span className="font-bold text-sepia text-[10px] mt-0.5">{element.temperature ?? '???'}°C</span>
-                    <span className="text-[7px] text-sepia/40 uppercase tracking-tighter">Норма: {element.targetTemperature ?? 0}°C</span>
+                    <span className="text-[14px] text-sepia/40 uppercase tracking-tighter">Норма: {element.targetTemperature ?? 0}°C</span>
                   </div>
                 </div>
                 <div className="flex flex-col items-center p-2 bg-sepia/5 rounded border border-sepia/10">
                   <span>Стабильность</span>
                   <div className="flex items-center gap-1">
                     <span className="font-bold text-sepia text-[10px] mt-0.5">{element.stability ?? '???'}%</span>
-                    {timeLeft !== null && (element.stability ?? 100) < 100 && (
-                      <span className="text-[8px] text-gold animate-pulse">({formatTime(timeLeft)})</span>
-                    )}
                   </div>
                 </div>
                 <div className="flex flex-col items-center p-2 bg-sepia/5 rounded border border-sepia/10">

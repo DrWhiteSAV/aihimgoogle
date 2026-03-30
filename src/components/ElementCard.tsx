@@ -6,7 +6,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Thermometer, Contrast, Leaf, Hourglass } from 'lucide-react';
+import { Thermometer, Shield } from 'lucide-react';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -32,34 +32,41 @@ export const ElementCard: React.FC<ElementCardProps> = ({
   const [timeLeft, setTimeLeft] = React.useState<number | null>(null);
 
   React.useEffect(() => {
-    // Initial elements don't decay
-    if (INITIAL_ELEMENTS.some(ie => ie.id === element.id)) {
-      setTimeLeft(null);
-      return;
-    }
-
     const updateTimer = () => {
       const now = Date.now();
       
-      // Both stability and temperature share the same interval in constants.ts
-      const intervalMs = (STABILITY_DECAY_INTERVAL[element.rarity] || 60) * 1000;
-      const lastDecay = element.lastDecayAt || element.discoveredAt;
-      const remaining = Math.max(0, Math.ceil((intervalMs - (now - lastDecay)) / 1000));
-      setTimeLeft(remaining);
+      const sIntervalMs = (STABILITY_DECAY_INTERVAL[element.rarity] || 60) * 1000;
+      const tIntervalMs = (TEMPERATURE_DECAY_INTERVAL[element.rarity] || 60) * 1000;
+      
+      const lastSDecay = element.lastDecayAt || element.discoveredAt;
+      const lastTDecay = element.lastTempDecayAt || element.discoveredAt;
+      
+      const sRemaining = Math.max(0, Math.ceil((sIntervalMs - (now - lastSDecay)) / 1000));
+      const tRemaining = Math.max(0, Math.ceil((tIntervalMs - (now - lastTDecay)) / 1000));
+      
+      if ((element.stability ?? 100) <= 0) {
+        if ((element.temperature ?? 0) <= -273) {
+          setTimeLeft(null);
+        } else {
+          setTimeLeft(tRemaining);
+        }
+      } else {
+        setTimeLeft(Math.min(sRemaining, tRemaining));
+      }
     };
 
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
 
     return () => clearInterval(interval);
-  }, [element.id, element.lastDecayAt, element.discoveredAt, element.rarity]);
+  }, [element?.id, element?.lastDecayAt, element?.lastTempDecayAt, element?.discoveredAt, element?.rarity, element?.stability, element?.temperature]);
+
+  if (!element) return null;
 
   const formatTime = (seconds: number) => {
-    if (seconds < 60) return `${seconds}s`;
     const mins = Math.floor(seconds / 60);
-    if (mins < 60) return `${mins}m ${seconds % 60}s`;
-    const hours = Math.floor(mins / 60);
-    return `${hours}h ${mins % 60}m`;
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   const {
@@ -98,13 +105,13 @@ export const ElementCard: React.FC<ElementCardProps> = ({
         isSelected && "ring-2 ring-gold gold-glow scale-105 z-10",
         RARITY_COLORS[element.rarity || 'Обычный'],
         compact ? "p-2 aspect-square" : "p-4 min-h-[120px] aspect-[3/4]",
-        isDraggable && "touch-none",
+        isDraggable && "touch-pan-y",
         className
       )}
     >
       {compact && timeLeft !== null && (
         <div className="absolute top-0.5 left-0 right-0 flex flex-col items-center">
-          <div className="text-[7px] font-mono text-ink/60 font-bold leading-none" title="Время до распада">
+          <div className="text-[12px] font-mono text-ink/60 font-bold leading-none" title="Время до распада">
             {formatTime(timeLeft)}
           </div>
         </div>
@@ -156,7 +163,7 @@ export const ElementCard: React.FC<ElementCardProps> = ({
           </div>
 
           {timeLeft !== null && (
-            <div className="absolute top-1 left-1/2 -translate-x-1/2 text-[7px] font-mono text-ink/60 font-bold uppercase tracking-widest">
+            <div className="absolute top-1 left-1/2 -translate-x-1/2 text-[12px] font-mono text-ink/60 font-bold uppercase tracking-widest">
               Цикл: {formatTime(timeLeft)}
             </div>
           )}
@@ -183,26 +190,26 @@ export const ElementCard: React.FC<ElementCardProps> = ({
       </div>
 
       {/* Law Badges */}
-      <div className="absolute top-1 left-1 flex flex-col gap-1 opacity-40">
-        {(element.temperature ?? 0) > 500 && (
-          <span title="Закон Температуры">
-            <Thermometer size={8} className="text-gold" />
-          </span>
+      <div className="absolute top-1 left-1 flex flex-col gap-1">
+        {(element.temperature ?? 0) < (element.targetTemperature ?? 0) - 200 && (
+          <motion.div 
+            animate={{ scale: [1, 1.2, 1] }}
+            transition={{ repeat: Infinity, duration: 2 }}
+            title="Закон Температуры: Слишком холодно!"
+            className="p-0.5 bg-blue-500/20 rounded-full border border-blue-500/40"
+          >
+            <Thermometer size={10} className="text-blue-600" />
+          </motion.div>
         )}
-        {element.essences?.some(e => ['void', 'creation'].includes(e)) && (
-          <span title="Закон Противоположностей">
-            <Contrast size={8} className="text-gold" />
-          </span>
-        )}
-        {element.essences?.includes('life') && (
-          <span title="Закон Жизни">
-            <Leaf size={8} className="text-gold" />
-          </span>
-        )}
-        {(element.complexity ?? 0) > 5 && (
-          <span title="Закон Времени">
-            <Hourglass size={8} className="text-gold" />
-          </span>
+        {(element.stability ?? 100) < 80 && (
+          <motion.div 
+            animate={{ scale: [1, 1.2, 1] }}
+            transition={{ repeat: Infinity, duration: 2, delay: 0.5 }}
+            title="Закон Стабильности: Нестабильно!"
+            className="p-0.5 bg-red-500/20 rounded-full border border-red-500/40"
+          >
+            <Shield size={10} className="text-red-600" />
+          </motion.div>
         )}
       </div>
 
@@ -235,6 +242,15 @@ export const ElementCard: React.FC<ElementCardProps> = ({
       <div className="absolute top-0 right-0 w-1.5 h-1.5 border-t border-r border-sepia/40" />
       <div className="absolute bottom-0 left-0 w-1.5 h-1.5 border-b border-l border-sepia/40" />
       <div className="absolute bottom-0 right-0 w-1.5 h-1.5 border-b border-r border-sepia/40" />
+
+      {/* Frost Effect */}
+      {(element.stability ?? 100) <= 0 && (element.temperature ?? 0) <= -273 && (
+        <div className="absolute inset-0 pointer-events-none z-20 overflow-hidden rounded-inherit">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-100/30 via-transparent to-blue-200/30 backdrop-blur-[0.5px]" />
+          <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_center,_white_1px,_transparent_1px)] bg-[size:4px_4px]" />
+          <div className="absolute inset-0 border-2 border-blue-100/40 rounded-inherit" />
+        </div>
+      )}
     </motion.div>
   );
 };

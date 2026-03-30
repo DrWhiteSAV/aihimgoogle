@@ -12,6 +12,29 @@
   --color-parchment: #F5F2ED;
 }
 
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(112, 66, 20, 0.4) rgba(112, 66, 20, 0.1);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(112, 66, 20, 0.1);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(112, 66, 20, 0.4);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(201, 163, 67, 0.6);
+}
+
 body {
   @apply bg-parchment text-ink font-serif overflow-x-hidden;
   background-image: url('https://www.transparenttextures.com/patterns/parchment.png');

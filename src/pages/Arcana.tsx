@@ -1,14 +1,20 @@
-import React from 'react';
-import { motion } from 'motion/react';
-import { AlchemyElement } from '../types';
-import { Sparkles, Zap, Shield, Eye, Globe, Thermometer, Contrast, Leaf, Hourglass } from 'lucide-react';
-import { REALITY_LAYERS, HIDDEN_LAWS, calculateRank, INITIAL_ELEMENTS } from '../constants';
-import { AnimatePresence } from 'motion/react';
-import { X, Info } from 'lucide-react';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { AlchemyElement, Rarity } from '../types';
+import { Sparkles, Zap, Shield, Eye, Globe, Thermometer, Contrast, Leaf, Hourglass, X, Info, ExternalLink, Youtube, Send, MessageSquare } from 'lucide-react';
+import { REALITY_LAYERS, HIDDEN_LAWS, calculateRank, INITIAL_ELEMENTS, RANKS, RARITY_DETAILS, RARITY_COLORS } from '../constants';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 
 interface ArcanaProps {
   onReset: () => void;
   elements: AlchemyElement[];
+  aihim: number;
+  setAihim: React.Dispatch<React.SetStateAction<number>>;
 }
 
 const LAYER_ICONS: Record<number, any> = {
@@ -24,16 +30,20 @@ const LAW_ICONS: Record<string, any> = {
   Contrast,
   Leaf,
   Hourglass,
+  Shield,
 };
 
-export const Arcana: React.FC<ArcanaProps> = ({ onReset, elements }) => {
-  const [selectedLaw, setSelectedLaw] = React.useState<any>(null);
-  const [selectedLayer, setSelectedLayer] = React.useState<any>(null);
-  const maxReality = Math.max(1, ...elements.map(e => e.realityLevel || 1));
-  const totalElements = elements.length;
+export const Arcana: React.FC<ArcanaProps> = ({ onReset, elements, aihim, setAihim }) => {
+  const [selectedLaw, setSelectedLaw] = useState<any>(null);
+  const [selectedLayer, setSelectedLayer] = useState<any>(null);
+  const [selectedRank, setSelectedRank] = useState<any>(null);
+  const [selectedRarity, setSelectedRarity] = useState<any>(null);
+  const validElements = elements.filter(e => e !== null);
+  const maxReality = Math.max(1, ...validElements.map(e => e.realityLevel || 1));
+  const totalElements = validElements.length;
 
-  const { currentRank, nextRank, progressToNext } = calculateRank(totalElements);
-  const [showRankTooltip, setShowRankTooltip] = React.useState(false);
+  const { currentRank, nextRank, progressToNextRank } = calculateRank(totalElements);
+  const [showRankTooltip, setShowRankTooltip] = useState(false);
 
   return (
     <motion.div
@@ -53,7 +63,7 @@ export const Arcana: React.FC<ArcanaProps> = ({ onReset, elements }) => {
           <div className="flex-1 text-center md:text-left">
             <div className="text-[10px] uppercase tracking-[0.3em] text-gold font-bold">Ваш Текущий Ранг</div>
             <h2 className="font-gothic text-3xl tracking-widest text-sepia">{currentRank.name}</h2>
-            <p className="text-sm italic text-sepia/70">{currentRank.title}</p>
+            <p className="text-sm italic text-sepia/70">{currentRank.desc}</p>
             
             <div className="mt-4 space-y-1 relative">
               <div className="flex justify-between text-[10px] uppercase font-bold tracking-widest text-sepia/50">
@@ -66,7 +76,7 @@ export const Arcana: React.FC<ArcanaProps> = ({ onReset, elements }) => {
               <div className="h-2 w-full bg-sepia/10 rounded-full overflow-hidden">
                 <motion.div 
                   initial={{ width: 0 }}
-                  animate={{ width: `${progressToNext}%` }}
+                  animate={{ width: `${progressToNextRank}%` }}
                   className="h-full bg-gold shadow-[0_0_10px_rgba(201,163,67,0.5)]"
                 />
               </div>
@@ -94,100 +104,216 @@ export const Arcana: React.FC<ArcanaProps> = ({ onReset, elements }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Reality Layers */}
-        <div className="parchment-card p-6 space-y-6">
-          <h3 className="font-gothic text-xl tracking-widest text-gold text-center uppercase">Слои Реальности</h3>
-          <div className="space-y-4">
-            {REALITY_LAYERS.map((layer) => {
-              // Exclude initial elements from the count for the first layer
-              const layerElements = elements.filter(e => 
-                e.realityLevel === layer.level && 
-                !INITIAL_ELEMENTS.some(ie => ie.id === e.id)
-              ).length;
-              
-              // A layer is "unlocked" (active) if we have elements of that level
-              // OR if we meet the unlock requirement for it to become "available"
-              const isUnlocked = maxReality >= layer.level;
-              
-              // Check if it's "available" to be discovered (for the next layer)
-              let isAvailable = isUnlocked;
-              if (!isUnlocked && layer.level === maxReality + 1) {
-                // Check specific unlock conditions from constants
-                if (layer.level === 2) isAvailable = layerElements >= 0; // This is tricky because layerElements is for CURRENT layer.
-                // Let's use a simpler logic: 
-                // Layer 2 is available if we found 10 NEW elements of Layer 1.
-                const prevLayerNewElements = elements.filter(e => 
-                  e.realityLevel === layer.level - 1 && 
-                  !INITIAL_ELEMENTS.some(ie => ie.id === e.id)
-                ).length;
-
-                if (layer.level === 2) isAvailable = prevLayerNewElements >= 10;
-                if (layer.level === 3) isAvailable = prevLayerNewElements >= 15 && elements.some(e => e.essences?.includes('life'));
-                if (layer.level === 4) isAvailable = prevLayerNewElements >= 25; // simplified
-                if (layer.level === 5) isAvailable = prevLayerNewElements >= 50;
-              }
-
-              const LayerIcon = LAYER_ICONS[layer.level] || Shield;
-              
-              return (
-                <div 
-                  key={layer.level} 
-                  onClick={() => setSelectedLayer(layer)}
-                  className={`flex items-center gap-4 p-3 rounded border transition-all cursor-pointer hover:bg-sepia/10 ${isAvailable ? 'bg-sepia/5 border-gold/30' : 'opacity-30 border-sepia/10 grayscale'}`}
-                >
-                  <div className={`p-2 rounded-full ${isUnlocked ? 'bg-gold/20 text-gold' : isAvailable ? 'bg-gold/10 text-gold/50' : 'bg-sepia/10 text-sepia'}`}>
-                    <LayerIcon size={20} />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-sm">{layer.name}</span>
-                      <span className="text-[10px] opacity-50">{layerElements} новых</span>
-                    </div>
-                    <p className="text-[10px] italic opacity-70 line-clamp-1">{isAvailable ? layer.desc : 'Слой заблокирован'}</p>
-                  </div>
-                  <Info size={14} className="text-gold/40" />
+      {/* Hidden Laws */}
+      <div className="parchment-card p-6 space-y-6">
+        <h3 className="font-gothic text-xl tracking-widest text-gold text-center uppercase">Законы Мироздания</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {HIDDEN_LAWS.map((law) => {
+            const isDiscovered = (law.id === 'temp') ||
+                                (law.id === 'stab') ||
+                                (law.id === 'daynight') ||
+                                (law.id === 'opp' && validElements.some(e => e && e.essences?.includes('void')) && validElements.some(e2 => e2 && e2.essences?.includes('creation'))) ||
+                                (law.id === 'life' && validElements.some(e => e && e.essences?.includes('life'))) ||
+                                (law.id === 'time' && totalElements > 20);
+            return (
+              <div 
+                key={law.id} 
+                onClick={() => isDiscovered && setSelectedLaw(law)}
+                className={`flex items-center gap-4 p-3 rounded border transition-all ${isDiscovered ? 'bg-gold/5 border-gold/20 cursor-pointer hover:bg-gold/10' : 'opacity-20 border-sepia/10 blur-[1px]'}`}
+              >
+                <div className="p-2 rounded-full bg-gold/10 text-gold">
+                  {isDiscovered ? (
+                    React.createElement(LAW_ICONS[law.icon] || Sparkles, { size: 20 })
+                  ) : (
+                    <span className="text-xl">?</span>
+                  )}
                 </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Hidden Laws */}
-        <div className="parchment-card p-6 space-y-6">
-          <h3 className="font-gothic text-xl tracking-widest text-gold text-center uppercase">Законы Мироздания</h3>
-          <div className="space-y-4">
-            {HIDDEN_LAWS.map((law) => {
-              // Logic to "discover" laws based on elements
-              const isDiscovered = (law.id === 'temp' && elements.some(e => (e.temperature || 0) > 500)) ||
-                                  (law.id === 'opp' && elements.some(e => e.essences?.includes('void') && elements.some(e2 => e2.essences?.includes('creation')))) ||
-                                  (law.id === 'life' && elements.some(e => e.essences?.includes('life'))) ||
-                                  (law.id === 'time' && totalElements > 20);
-
-              return (
-                <div 
-                  key={law.id} 
-                  onClick={() => isDiscovered && setSelectedLaw(law)}
-                  className={`flex items-center gap-4 p-3 rounded border transition-all ${isDiscovered ? 'bg-gold/5 border-gold/20 cursor-pointer hover:bg-gold/10' : 'opacity-20 border-sepia/10 blur-[1px]'}`}
-                >
-                  <div className="p-2 rounded-full bg-gold/10 text-gold">
-                    {isDiscovered ? (
-                      React.createElement(LAW_ICONS[law.icon] || Sparkles, { size: 20 })
-                    ) : (
-                      <span className="text-xl">?</span>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <span className="font-bold text-sm block">{isDiscovered ? law.name : 'Тайный Закон'}</span>
-                    <p className="text-[10px] italic opacity-70">{isDiscovered ? law.desc : 'Условия открытия неизвестны...'}</p>
-                  </div>
-                  {isDiscovered && <Info size={14} className="text-gold/40" />}
+                <div className="flex-1">
+                  <span className="font-bold text-sm block">{isDiscovered ? law.name : 'Тайный Закон'}</span>
+                  <p className="text-[10px] italic opacity-70">{isDiscovered ? law.desc : 'Условия открытия неизвестны...'}</p>
                 </div>
-              );
-            })}
-          </div>
+                {isDiscovered && <Info size={14} className="text-gold/40" />}
+              </div>
+            );
+          })}
         </div>
       </div>
+
+      {/* Rarity Levels */}
+      <div className="parchment-card p-6 space-y-6">
+        <h3 className="font-gothic text-xl tracking-widest text-gold text-center uppercase">Иерархия Редкости</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+          {Object.keys(RARITY_DETAILS).map((rarity) => {
+            const count = elements.filter(e => e.rarity === rarity).length;
+            return (
+              <motion.div
+                key={rarity}
+                whileHover={{ scale: 1.05, y: -2 }}
+                onClick={() => setSelectedRarity({ name: rarity, ...RARITY_DETAILS[rarity] })}
+                className={cn(
+                  "p-3 rounded-lg border cursor-pointer transition-all flex flex-col items-center text-center gap-1 shadow-sm",
+                  RARITY_COLORS[rarity as Rarity] || "bg-sepia/5 border-sepia/10"
+                )}
+              >
+                <span className="text-[10px] font-bold uppercase tracking-tighter truncate w-full">{rarity}</span>
+                <div className="text-xs font-mono opacity-60">{count}</div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Rank Hierarchy */}
+      <div className="parchment-card p-6 space-y-6">
+        <h3 className="font-gothic text-xl tracking-widest text-gold text-center uppercase">ИЕРАРХИЯ ПОЗНАНИЯ</h3>
+        
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          {RANKS.map((rank, idx) => {
+            const isCurrent = currentRank.name === rank.name;
+            const isUnlocked = totalElements >= rank.min;
+            
+            return (
+              <motion.div 
+                key={idx}
+                whileHover={{ scale: 1.02, y: -2 }}
+                onClick={() => setSelectedRank(rank)}
+                className={cn(
+                  "p-4 rounded-xl border transition-all cursor-pointer flex flex-col items-center text-center gap-3 relative overflow-hidden",
+                  isCurrent 
+                    ? 'bg-gold/10 border-gold/40 text-gold shadow-[0_0_15px_rgba(201,163,67,0.2)]' 
+                    : isUnlocked 
+                      ? 'bg-parchment/40 border-sepia/20 text-sepia hover:bg-parchment/60 hover:border-gold/30' 
+                      : 'bg-sepia/5 border-sepia/10 opacity-60 grayscale italic text-sepia/60'
+                )}
+              >
+                <div className={cn(
+                  "w-12 h-12 rounded-full flex items-center justify-center text-2xl border",
+                  isCurrent ? "bg-gold/20 border-gold/30" : "bg-sepia/5 border-sepia/10"
+                )}>
+                  {rank.icon}
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase font-bold tracking-widest opacity-60 mb-1">Ранг {idx + 1}</div>
+                  <div className="text-xs font-bold uppercase tracking-wider leading-tight">{rank.name}</div>
+                </div>
+                <div className="text-[10px] font-mono opacity-50 mt-auto">
+                  {rank.levels} Ур.
+                </div>
+                {isCurrent && (
+                  <div className="absolute top-2 right-2">
+                    <Sparkles size={10} className="text-gold animate-pulse" />
+                  </div>
+                )}
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Reality Layers */}
+      <div className="parchment-card p-6 space-y-6">
+        <h3 className="font-gothic text-xl tracking-widest text-gold text-center uppercase">Слои Реальности</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {REALITY_LAYERS.map((layer) => {
+            const layerElements = elements.filter(e => 
+              e && e.realityLevel === layer.level && 
+              !INITIAL_ELEMENTS.some(ie => ie && ie.id === e.id)
+            ).length;
+            const isUnlocked = maxReality >= layer.level;
+            let isAvailable = isUnlocked;
+            if (!isUnlocked && layer.level === maxReality + 1) {
+              const prevLayerNewElements = elements.filter(e => 
+                e && e.realityLevel === layer.level - 1 && 
+                !INITIAL_ELEMENTS.some(ie => ie && ie.id === e.id)
+              ).length;
+              if (layer.level === 2) isAvailable = prevLayerNewElements >= 10;
+              if (layer.level === 3) isAvailable = prevLayerNewElements >= 15 && elements.some(e => e && e.essences?.includes('life'));
+              if (layer.level === 4) isAvailable = prevLayerNewElements >= 25;
+              if (layer.level === 5) isAvailable = prevLayerNewElements >= 50;
+            }
+            const LayerIcon = LAYER_ICONS[layer.level] || Shield;
+            return (
+              <motion.div 
+                key={layer.level} 
+                whileHover={{ scale: 1.02 }}
+                onClick={() => setSelectedLayer(layer)}
+                className={cn(
+                  "p-4 rounded-xl border transition-all cursor-pointer flex flex-col gap-3 relative overflow-hidden",
+                  isUnlocked 
+                    ? 'bg-gold/5 border-gold/30 text-sepia' 
+                    : isAvailable 
+                      ? 'bg-parchment/40 border-gold/20 text-sepia/80' 
+                      : 'bg-sepia/5 border-sepia/10 opacity-60 grayscale'
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <div className={cn(
+                    "p-2 rounded-lg border",
+                    isUnlocked ? "bg-gold/20 border-gold/30 text-gold" : "bg-sepia/5 border-sepia/10 text-sepia/40"
+                  )}>
+                    <LayerIcon size={18} />
+                  </div>
+                  <span className="text-[10px] font-mono opacity-50">#{layer.level}</span>
+                </div>
+                <div>
+                  <div className="font-bold text-xs uppercase tracking-wider truncate">{layer.name}</div>
+                  <p className="text-[9px] italic opacity-60 line-clamp-2 mt-1">
+                    {isAvailable ? layer.desc : 'Слой заблокирован'}
+                  </p>
+                </div>
+                <div className="flex justify-between items-center mt-auto pt-2 border-t border-sepia/5">
+                  <span className="text-[8px] uppercase font-bold tracking-tighter text-gold/60">{layerElements} новых</span>
+                  <Info size={10} className="text-gold/40" />
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Rank Modal */}
+      <AnimatePresence>
+        {selectedRank && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-ink/80 backdrop-blur-md"
+            onClick={() => setSelectedRank(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="parchment-card max-w-md w-full p-8 relative"
+              onClick={e => e.stopPropagation()}
+            >
+              <button onClick={() => setSelectedRank(null)} className="absolute top-4 right-4 text-sepia/40 hover:text-sepia"><X size={20} /></button>
+              <div className="flex flex-col items-center text-center gap-6">
+                <div className="w-20 h-20 rounded-full bg-gold/10 flex items-center justify-center text-5xl border border-gold/20 shadow-xl">{selectedRank.icon}</div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.3em] text-gold font-bold mb-1">Ранг Алхимика</div>
+                  <h2 className="font-gothic text-3xl tracking-widest text-sepia uppercase">{selectedRank.name}</h2>
+                  <div className="text-xs font-mono text-gold mt-1">Уровни: {selectedRank.levels}</div>
+                </div>
+                <div className="w-full h-px bg-sepia/10" />
+                <div className="space-y-4 text-left w-full">
+                  <div>
+                    <h4 className="text-[10px] uppercase font-bold tracking-widest text-gold mb-1">Суть Ранга</h4>
+                    <p className="text-sm text-sepia italic">{selectedRank.desc}</p>
+                  </div>
+                  <div className="bg-sepia/5 p-4 rounded border border-sepia/10">
+                    <h4 className="text-[10px] uppercase font-bold tracking-widest text-gold mb-2 flex items-center gap-2"><Info size={12} /> Подробности</h4>
+                    <p className="text-xs text-sepia/80 leading-relaxed">{selectedRank.detail}</p>
+                  </div>
+                </div>
+                <div className="w-full h-px bg-sepia/10" />
+                <p className="text-[9px] text-sepia/40 uppercase tracking-widest">Требуется элементов: {selectedRank.min}</p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Hidden Law Modal */}
       <AnimatePresence>
@@ -206,44 +332,22 @@ export const Arcana: React.FC<ArcanaProps> = ({ onReset, elements }) => {
               className="parchment-card max-w-md w-full p-8 relative"
               onClick={e => e.stopPropagation()}
             >
-              <button 
-                onClick={() => setSelectedLaw(null)}
-                className="absolute top-4 right-4 text-sepia/40 hover:text-sepia"
-              >
-                <X size={20} />
-              </button>
-
+              <button onClick={() => setSelectedLaw(null)} className="absolute top-4 right-4 text-sepia/40 hover:text-sepia"><X size={20} /></button>
               <div className="flex flex-col items-center text-center gap-6">
                 <div className="w-20 h-20 rounded-full bg-gold/10 flex items-center justify-center text-gold border border-gold/20">
                   {React.createElement(LAW_ICONS[selectedLaw.icon] || Sparkles, { size: 40 })}
                 </div>
-                
                 <div>
                   <div className="text-[10px] uppercase tracking-[0.3em] text-gold font-bold mb-1">Закон Мироздания</div>
-                  <h2 className="font-gothic text-xl md:text-3xl tracking-widest text-sepia break-words leading-tight">
-                    {selectedLaw.name}
-                  </h2>
+                  <h2 className="font-gothic text-xl md:text-3xl tracking-widest text-sepia break-words leading-tight">{selectedLaw.name}</h2>
                 </div>
-
                 <div className="w-full h-px bg-sepia/10" />
-
-                <p className="text-sepia italic leading-relaxed">
-                  "{selectedLaw.desc}"
-                </p>
-
+                <p className="text-sepia italic leading-relaxed">"{selectedLaw.desc}"</p>
                 <div className="bg-gold/5 p-4 rounded border border-gold/20 text-left">
-                  <h4 className="text-[10px] uppercase font-bold tracking-widest text-gold mb-2 flex items-center gap-2">
-                    <Sparkles size={12} />
-                    Тайное Знание
-                  </h4>
-                  <p className="text-xs text-sepia/80 leading-relaxed">
-                    {selectedLaw.detail}
-                  </p>
+                  <h4 className="text-[10px] uppercase font-bold tracking-widest text-gold mb-2 flex items-center gap-2"><Sparkles size={12} /> Тайное Знание</h4>
+                  <p className="text-xs text-sepia/80 leading-relaxed">{selectedLaw.detail}</p>
                 </div>
-
-                <p className="text-[9px] text-sepia/40 uppercase tracking-widest">
-                  Этот закон теперь влияет на ваши трансмутации
-                </p>
+                <p className="text-[9px] text-sepia/40 uppercase tracking-widest">Этот закон теперь влияет на ваши трансмутации</p>
               </div>
             </motion.div>
           </motion.div>
@@ -267,84 +371,159 @@ export const Arcana: React.FC<ArcanaProps> = ({ onReset, elements }) => {
               className="parchment-card max-w-md w-full p-8 relative"
               onClick={e => e.stopPropagation()}
             >
-              <button 
-                onClick={() => setSelectedLayer(null)}
-                className="absolute top-4 right-4 text-sepia/40 hover:text-sepia"
-              >
-                <X size={20} />
-              </button>
-
+              <button onClick={() => setSelectedLayer(null)} className="absolute top-4 right-4 text-sepia/40 hover:text-sepia"><X size={20} /></button>
               <div className="flex flex-col items-center text-center gap-6">
                 <div className="w-20 h-20 rounded-full bg-sepia/5 flex items-center justify-center text-gold border border-gold/20">
                   {React.createElement(LAYER_ICONS[selectedLayer.level] || Shield, { size: 40 })}
                 </div>
-                
                 <div>
                   <div className="text-[10px] uppercase tracking-[0.3em] text-gold font-bold mb-1">Слой Реальности {selectedLayer.level}</div>
                   <h2 className="font-gothic text-3xl tracking-widest text-sepia uppercase">{selectedLayer.name}</h2>
                 </div>
-
                 <div className="w-full h-px bg-sepia/10" />
-
                 <div className="space-y-4 text-left w-full">
                   <div>
                     <h4 className="text-[10px] uppercase font-bold tracking-widest text-gold mb-1">Суть Слоя</h4>
                     <p className="text-sm text-sepia italic">{selectedLayer.desc}</p>
                   </div>
-                  
                   <div className="bg-sepia/5 p-4 rounded border border-sepia/10">
-                    <h4 className="text-[10px] uppercase font-bold tracking-widest text-gold mb-2 flex items-center gap-2">
-                      <Sparkles size={12} />
-                      Законы Слоя
-                    </h4>
-                    <p className="text-xs text-sepia/80 leading-relaxed">
-                      {selectedLayer.rules}
-                    </p>
+                    <h4 className="text-[10px] uppercase font-bold tracking-widest text-gold mb-2 flex items-center gap-2"><Sparkles size={12} /> Законы Слоя</h4>
+                    <p className="text-xs text-sepia/80 leading-relaxed">{selectedLayer.rules}</p>
                   </div>
-
                   <div className="pt-2">
                     <h4 className="text-[10px] uppercase font-bold tracking-widest text-gold mb-1">Как открыть</h4>
-                    <p className="text-xs text-sepia/60 font-bold uppercase tracking-widest">
-                      {selectedLayer.unlock}
-                    </p>
+                    <p className="text-xs text-sepia/60 font-bold uppercase tracking-widest">{selectedLayer.unlock}</p>
                   </div>
                 </div>
-
                 <div className="w-full h-px bg-sepia/10" />
-
-                <p className="text-[9px] text-sepia/40 uppercase tracking-widest">
-                  Познание слоев открывает путь к высшей алхимии
-                </p>
+                <p className="text-[9px] text-sepia/40 uppercase tracking-widest">Познание слоев открывает путь к высшей алхимии</p>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="parchment-card p-8 text-center space-y-6">
-        <h3 className="font-gothic text-xl tracking-widest text-gold uppercase">Опасные Манипуляции</h3>
-        <div className="max-w-xs mx-auto space-y-4">
-          <button 
-            onClick={() => {
-              onReset();
-              window.location.reload();
-            }}
-            className="w-full py-3 border border-red-900/30 text-red-900 hover:bg-red-900/10 transition-all rounded font-bold uppercase tracking-widest text-xs"
+      {/* Rarity Modal */}
+      <AnimatePresence>
+        {selectedRarity && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-ink/80 backdrop-blur-md"
+            onClick={() => setSelectedRarity(null)}
           >
-            Сбросить Вселенную
-          </button>
-          
-          <button 
-            onClick={() => {
-              localStorage.removeItem('aihim_is_combining'); // Just in case we ever store it
-              window.location.reload();
-            }}
-            className="w-full py-3 border border-gold/30 text-gold hover:bg-gold/10 transition-all rounded font-bold uppercase tracking-widest text-xs"
-          >
-            Перезагрузить Эфир (Fix Stuck)
-          </button>
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className={cn(
+                "parchment-card max-w-md w-full p-8 relative border-2",
+                RARITY_COLORS[selectedRarity.name as Rarity] || "border-gold/40"
+              )}
+              onClick={e => e.stopPropagation()}
+            >
+              <button onClick={() => setSelectedRarity(null)} className="absolute top-4 right-4 text-sepia/40 hover:text-sepia"><X size={20} /></button>
+              <div className="flex flex-col items-center text-center gap-6">
+                <div className={cn(
+                  "w-20 h-20 rounded-full flex items-center justify-center text-gold border shadow-xl",
+                  RARITY_COLORS[selectedRarity.name as Rarity] || "bg-gold/10 border-gold/20"
+                )}>
+                  <Sparkles size={40} />
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.3em] text-gold font-bold mb-1">Уровень Редкости</div>
+                  <h2 className="font-gothic text-3xl tracking-widest text-sepia uppercase">{selectedRarity.name}</h2>
+                </div>
+                <div className="w-full h-px bg-sepia/10" />
+                <div className="space-y-4 text-left w-full">
+                  <div>
+                    <h4 className="text-[10px] uppercase font-bold tracking-widest text-gold mb-1">Описание</h4>
+                    <p className="text-sm text-sepia italic">{selectedRarity.desc}</p>
+                  </div>
+                  <div className="bg-sepia/5 p-4 rounded border border-sepia/10">
+                    <h4 className="text-[10px] uppercase font-bold tracking-widest text-gold mb-2 flex items-center gap-2"><Info size={12} /> Правила и Свойства</h4>
+                    <p className="text-xs text-sepia/80 leading-relaxed">{selectedRarity.rules}</p>
+                  </div>
+                </div>
+                <div className="w-full h-px bg-sepia/10" />
+                <p className="text-[9px] text-sepia/40 uppercase tracking-widest">Редкость определяет ценность и сложность элемента</p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-          <p className="text-[10px] opacity-50 italic">AIhim v1.1 - На базе Gemini AI. Мир помнит ваши ошибки.</p>
+      {/* Dangerous Manipulations & Community Links */}
+      <div className="parchment-card p-8 space-y-8">
+        <div className="text-center space-y-2">
+          <h3 className="font-gothic text-xl tracking-widest text-gold uppercase">Ссылки и сообщество</h3>
+          <p className="text-[10px] uppercase font-bold text-sepia/40 tracking-widest">Присоединяйтесь к нашему пути</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <a href="https://t.me/SAV_AI" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-4 bg-gold/5 border border-gold/20 rounded-xl hover:bg-gold/10 transition-all group">
+            <div className="w-10 h-10 rounded-full bg-gold/10 flex items-center justify-center text-gold group-hover:scale-110 transition-transform"><Send size={20} /></div>
+            <div>
+              <div className="text-xs font-bold text-sepia flex items-center gap-1">🤖 SAV AI <ExternalLink size={10} /></div>
+              <div className="text-[9px] text-sepia/60 uppercase tracking-tighter">Новости про нейросети и ИИ</div>
+            </div>
+          </a>
+          <a href="https://t.me/shishkarnem" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-4 bg-gold/5 border border-gold/20 rounded-xl hover:bg-gold/10 transition-all group">
+            <div className="w-10 h-10 rounded-full bg-gold/10 flex items-center justify-center text-gold group-hover:scale-110 transition-transform"><MessageSquare size={20} /></div>
+            <div>
+              <div className="text-xs font-bold text-sepia flex items-center gap-1">👨‍💻 Doctor White <ExternalLink size={10} /></div>
+              <div className="text-[9px] text-sepia/60 uppercase tracking-tighter">Разработчик приложения</div>
+            </div>
+          </a>
+          <a href="https://t.me/SAV_AIbot" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-4 bg-gold/5 border border-gold/20 rounded-xl hover:bg-gold/10 transition-all group">
+            <div className="w-10 h-10 rounded-full bg-gold/10 flex items-center justify-center text-gold group-hover:scale-110 transition-transform"><Zap size={20} /></div>
+            <div>
+              <div className="text-xs font-bold text-sepia flex items-center gap-1">🛒 Спаситель Продаж <ExternalLink size={10} /></div>
+              <div className="text-[9px] text-sepia/60 uppercase tracking-tighter">Заказать разработку ИИ</div>
+            </div>
+          </a>
+          <a href="https://t.me/SAVPartnerBot" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-4 bg-gold/5 border border-gold/20 rounded-xl hover:bg-gold/10 transition-all group">
+            <div className="w-10 h-10 rounded-full bg-gold/10 flex items-center justify-center text-gold group-hover:scale-110 transition-transform"><Globe size={20} /></div>
+            <div>
+              <div className="text-xs font-bold text-sepia flex items-center gap-1">🤝 ИИ-Гренландия <ExternalLink size={10} /></div>
+              <div className="text-[9px] text-sepia/60 uppercase tracking-tighter">Партнёрская программа</div>
+            </div>
+          </a>
+          <a href="https://www.youtube.com/@SAVAILife" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-4 bg-gold/5 border border-gold/20 rounded-xl hover:bg-gold/10 transition-all group sm:col-span-2">
+            <div className="w-10 h-10 rounded-full bg-gold/10 flex items-center justify-center text-gold group-hover:scale-110 transition-transform"><Youtube size={20} /></div>
+            <div>
+              <div className="text-xs font-bold text-sepia flex items-center gap-1">🎬 Нейросети для бизнеса <ExternalLink size={10} /></div>
+              <div className="text-[9px] text-sepia/60 uppercase tracking-tighter">YouTube канал с прямыми эфирами</div>
+            </div>
+          </a>
+        </div>
+
+        <div className="pt-8 border-t border-sepia/10">
+          <h3 className="font-gothic text-xl tracking-widest text-red-900/60 uppercase text-center mb-6">Опасные Манипуляции</h3>
+          <div className="max-w-xs mx-auto space-y-4">
+            <button 
+              onClick={() => {
+                onReset();
+                window.location.reload();
+              }}
+              className="w-full py-3 border border-red-900/30 text-red-900 hover:bg-red-900/10 transition-all rounded font-bold uppercase tracking-widest text-xs"
+            >
+              Сбросить Вселенную
+            </button>
+            
+            <button 
+              onClick={() => {
+                localStorage.removeItem('aihim_is_combining');
+                window.location.reload();
+              }}
+              className="w-full py-3 border border-gold/30 text-gold hover:bg-gold/10 transition-all rounded font-bold uppercase tracking-widest text-xs"
+            >
+              Перезагрузить Эфир (Fix Stuck)
+            </button>
+
+            <p className="text-[10px] opacity-50 italic text-center">Путь алхимика бесконечен...</p>
+          </div>
         </div>
       </div>
     </motion.div>
