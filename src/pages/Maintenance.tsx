@@ -142,7 +142,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
     
     handleTap('stability');
     setIsAnvilActive(true);
-    setTimeout(() => setIsAnvilActive(false), 300);
+    setTimeout(() => setIsAnvilActive(false), 150);
   };
 
   const handleTempChange = (delta: number) => {
@@ -325,7 +325,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
 
             <div className="relative z-10 flex flex-col items-center gap-4 md:gap-8 w-full max-w-4xl">
               {/* Mode Switcher */}
-              <div className="flex bg-parchment/40 backdrop-blur-md p-1 rounded-full border border-gold/40 mb-4">
+              <div className="flex bg-parchment/40 backdrop-blur-md p-1 rounded-full border border-gold/40 mb-4 md:-mt-4">
                 <button
                   onClick={() => setActiveSubTab('stability')}
                   className={`px-6 py-2 rounded-full text-xs uppercase font-bold tracking-widest transition-all ${
@@ -359,9 +359,9 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
                         <div className="relative flex flex-col items-center justify-center min-h-[400px] md:min-h-[450px] w-full">
                           
                           {/* Element Card and Slider - Responsive layout */}
-                          <div className="relative md:absolute md:left-0 lg:left-4 xl:left-10 md:top-0 z-20 flex flex-col items-center md:items-start mb-8 md:mb-0 scale-90 md:scale-100">
-                            <div className="opacity-90 hover:opacity-100 transition-opacity">
-                              <ElementCard element={selectedElement} />
+                          <div className="relative md:absolute md:left-0 lg:left-4 xl:left-10 md:top-0 z-20 flex flex-col items-center md:items-start mb-6 md:mb-0 scale-90 md:scale-100 w-full md:w-auto">
+                            <div className="opacity-90 hover:opacity-100 transition-opacity w-[140px] md:w-[160px] h-[180px] md:h-[210px] flex items-center justify-center">
+                              <ElementCard element={selectedElement} className="w-full h-full" />
                             </div>
                             
                             {/* Tap Amount Slider */}
@@ -382,9 +382,9 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
                           </div>
 
                           {/* The Anvil Sprites - Centered and Raised */}
-                          <div className="relative z-10 flex flex-col items-center md:-mt-28">
+                          <div className="relative z-10 flex flex-col items-center -mt-14 md:-mt-16">
                             <motion.div
-                              className="relative cursor-pointer select-none group w-60 md:w-72 aspect-square flex items-center justify-center"
+                              className="relative cursor-pointer select-none group w-72 md:w-72 aspect-square flex items-center justify-center"
                               onClick={handleAnvilClick}
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
@@ -410,7 +410,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
                                     exit={{ opacity: 0 }}
-                                    transition={{ duration: 0.15 }}
+                                    transition={{ duration: 0.08 }}
                                     className="absolute inset-0 flex items-center justify-center"
                                   >
                                     <img 
@@ -437,7 +437,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
                                     initial={{ opacity: 0, scale: 1.1 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     exit={{ opacity: 0 }}
-                                    transition={{ duration: 0.05 }}
+                                    transition={{ duration: 0.04 }}
                                     className="absolute inset-0 flex items-center justify-center"
                                   >
                                     <img 
