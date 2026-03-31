@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlchemyElement, Rarity } from '../types';
 import { Sparkles, Zap, Shield, Eye, Globe, Thermometer, Contrast, Leaf, Hourglass, X, Info, ExternalLink, Youtube, Send, MessageSquare } from 'lucide-react';
-import { REALITY_LAYERS, HIDDEN_LAWS, calculateRank, INITIAL_ELEMENTS, RANKS, RARITY_DETAILS, RARITY_COLORS, ELEMENT_TYPE_DETAILS, ESSENCE_DETAILS, translateEssence } from '../constants';
+import { REALITY_LAYERS, HIDDEN_LAWS, calculateRank, INITIAL_ELEMENTS, RANKS, RARITY_DETAILS, RARITY_COLORS, ELEMENT_TYPE_DETAILS, ESSENCE_DETAILS, translateEssence, RARITY_ORDER, calculateRarityChances } from '../constants';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -40,6 +40,8 @@ export const Arcana: React.FC<ArcanaProps> = ({ onReset, elements, aihim, setAih
   const [selectedRarity, setSelectedRarity] = useState<any>(null);
   const [selectedType, setSelectedType] = useState<any>(null);
   const [selectedEssence, setSelectedEssence] = useState<any>(null);
+  const [rarityA, setRarityA] = useState<string>(RARITY_ORDER[0]);
+  const [rarityB, setRarityB] = useState<string>(RARITY_ORDER[0]);
   const validElements = elements.filter(e => e !== null);
   const maxReality = Math.max(1, ...validElements.map(e => e.realityLevel || 1));
   const totalElements = validElements.length;
@@ -195,6 +197,83 @@ export const Arcana: React.FC<ArcanaProps> = ({ onReset, elements, aihim, setAih
               </motion.div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Rarity Calculator */}
+      <div className="parchment-card p-6 space-y-6">
+        <div className="text-center space-y-1">
+          <h3 className="font-gothic text-xl tracking-widest text-gold uppercase">Калькулятор Редкости</h3>
+          <p className="text-[10px] uppercase font-bold text-sepia/40 tracking-widest">Прогноз вероятности трансмутации</p>
+        </div>
+        
+        <div className="flex flex-col md:flex-row gap-6 items-center justify-center bg-gold/5 p-6 rounded-2xl border border-gold/10">
+          <div className="flex flex-col gap-2 w-full md:w-48">
+            <label className="text-[10px] uppercase font-bold text-gold tracking-widest text-center">Элемент A</label>
+            <select 
+              value={rarityA} 
+              onChange={(e) => setRarityA(e.target.value)}
+              className="bg-parchment border border-gold/20 rounded-lg p-3 text-xs font-bold text-sepia outline-none focus:border-gold shadow-inner appearance-none cursor-pointer text-center"
+            >
+              {RARITY_ORDER.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <div className="text-gold font-gothic text-3xl animate-pulse">+</div>
+          <div className="flex flex-col gap-2 w-full md:w-48">
+            <label className="text-[10px] uppercase font-bold text-gold tracking-widest text-center">Элемент B</label>
+            <select 
+              value={rarityB} 
+              onChange={(e) => setRarityB(e.target.value)}
+              className="bg-parchment border border-gold/20 rounded-lg p-3 text-xs font-bold text-sepia outline-none focus:border-gold shadow-inner appearance-none cursor-pointer text-center"
+            >
+              {RARITY_ORDER.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div className="bg-sepia/5 rounded-xl border border-sepia/10 overflow-hidden shadow-inner">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-gold/10 border-b border-gold/20">
+                <th className="p-4 text-[10px] uppercase font-bold text-gold tracking-widest">Редкость Результата</th>
+                <th className="p-4 text-[10px] uppercase font-bold text-gold tracking-widest text-right">Вероятность</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(calculateRarityChances(rarityA, rarityB))
+                .sort((a, b) => RARITY_ORDER.indexOf(b[0]) - RARITY_ORDER.indexOf(a[0]))
+                .map(([rarity, chance]) => (
+                <tr key={rarity} className="border-b border-sepia/5 last:border-0 hover:bg-gold/5 transition-colors">
+                  <td className="p-4">
+                    <span className={cn(
+                      "text-[10px] font-bold uppercase px-3 py-1 rounded-full border shadow-sm",
+                      RARITY_COLORS[rarity as Rarity] || "bg-sepia/5 border-sepia/10"
+                    )}>
+                      {rarity}
+                    </span>
+                  </td>
+                  <td className="p-4 text-right">
+                    <div className="flex items-center justify-end gap-3">
+                      <div className="w-24 h-1.5 bg-sepia/10 rounded-full overflow-hidden hidden sm:block">
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${chance}%` }}
+                          className="h-full bg-gold"
+                        />
+                      </div>
+                      <span className="font-mono text-sm font-bold text-sepia w-12 text-right">{chance}%</span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="bg-gold/5 p-4 rounded-lg border border-gold/20">
+          <p className="text-[10px] text-sepia/60 italic text-center leading-relaxed">
+            <Sparkles size={10} className="inline mr-1 text-gold" />
+            Закон Редкости гласит: соединение двух элементов одинаковой высокой редкости дает максимальный шанс на прорыв к следующему уровню материи. Смешивание разных уровней обычно приводит к усреднению результата.
+          </p>
         </div>
       </div>
 

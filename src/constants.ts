@@ -375,51 +375,120 @@ export const REALITY_LAYERS = [
   },
 ];
 
+export const RARITY_ORDER = [
+  'Обычный',
+  'Редкий',
+  'Эпический',
+  'Легендарный',
+  'Мифический',
+  'Божественный',
+  'Вечный',
+  'Космический',
+  'Изначальный',
+  'Трансцендентный',
+  'Запретный'
+];
+
+export const calculateRarityChances = (rarityA: string, rarityB: string) => {
+  const idxA = RARITY_ORDER.indexOf(rarityA);
+  const idxB = RARITY_ORDER.indexOf(rarityB);
+  
+  if (idxA === -1 || idxB === -1) return { [rarityA]: 100 };
+
+  const maxIdx = Math.max(idxA, idxB);
+  const minIdx = Math.min(idxA, idxB);
+  const diff = maxIdx - minIdx;
+  
+  const chances: Record<string, number> = {};
+
+  if (idxA === idxB) {
+    // Same rarity combination
+    const sameChance = Math.max(40, 70 - (maxIdx * 3));
+    const nextChance = Math.min(50, 20 + (maxIdx * 4));
+    const prevChance = 10;
+
+    chances[RARITY_ORDER[maxIdx]] = sameChance;
+    if (maxIdx + 1 < RARITY_ORDER.length) {
+      chances[RARITY_ORDER[maxIdx + 1]] = nextChance;
+    } else {
+      chances[RARITY_ORDER[maxIdx]] += nextChance;
+    }
+    if (maxIdx > 0) {
+      chances[RARITY_ORDER[maxIdx - 1]] = prevChance;
+    } else {
+      chances[RARITY_ORDER[maxIdx]] += prevChance;
+    }
+  } else if (diff === 1) {
+    // Close rarities
+    chances[RARITY_ORDER[maxIdx]] = 50 + (maxIdx * 2);
+    chances[RARITY_ORDER[minIdx]] = 30 - (maxIdx * 1);
+    if (maxIdx + 1 < RARITY_ORDER.length) {
+      chances[RARITY_ORDER[maxIdx + 1]] = 20 - (maxIdx * 1);
+    } else {
+      chances[RARITY_ORDER[maxIdx]] += 20 - (maxIdx * 1);
+    }
+  } else {
+    // Distant rarities
+    const midIdx = Math.floor((maxIdx + minIdx) / 2);
+    chances[RARITY_ORDER[midIdx]] = 60;
+    chances[RARITY_ORDER[maxIdx]] = 20;
+    chances[RARITY_ORDER[minIdx]] = 20;
+  }
+
+  // Normalize to 100%
+  const total = Object.values(chances).reduce((a, b) => a + b, 0);
+  Object.keys(chances).forEach(key => {
+    chances[key] = Math.round((chances[key] / total) * 100);
+  });
+
+  return chances;
+};
+
 export const RARITY_DETAILS: Record<string, { desc: string, rules: string }> = {
   'Обычный': {
     desc: 'Самые простые и распространенные элементы мироздания.',
-    rules: 'Легко синтезируются, обладают высокой стабильностью. Скорость распада: 60с. Стоимость укрепления: 1 AiHim.'
+    rules: 'Легко синтезируются, обладают высокой стабильностью. Скорость распада: 60с. Стоимость укрепления: 1 AiHim.\n\nШанс при синтезе (с таким же):\n- Обычный: 70%\n- Редкий: 25%\n- Эпический: 5%'
   },
   'Редкий': {
-    desc: 'Элементы, требующие более точных условий для существования.',
-    rules: 'Синтез требует специфических комбинаций. Скорость распада: 120с. Стоимость укрепления: 2 AiHim.'
+    desc: 'Элементы, требующие более точной настройки эфира.',
+    rules: 'Обладают уникальными свойствами. Скорость распада: 120с. Стоимость укрепления: 2 AiHim.\n\nШанс при синтезе (с таким же):\n- Редкий: 65%\n- Эпический: 30%\n- Легендарный: 5%'
   },
   'Эпический': {
-    desc: 'Мощные субстанции, резонирующие с тонкими планами реальности.',
-    rules: 'Часто требуют соблюдения Законов Вселенной. Скорость распада: 240с. Стоимость укрепления: 4 AiHim.'
+    desc: 'Мощные проявления магической энергии.',
+    rules: 'Часто нестабильны, требуют постоянного контроля. Скорость распада: 300с. Стоимость укрепления: 5 AiHim.\n\nШанс при синтезе (с таким же):\n- Эпический: 60%\n- Легендарный: 35%\n- Мифический: 5%'
   },
   'Легендарный': {
-    desc: 'Уникальные проявления материи, воспеваемые в древних гримуарах.',
-    rules: 'Сложный многоступенчатый синтез. Скорость распада: 480с. Стоимость укрепления: 8 AiHim.'
+    desc: 'Элементы, о которых слагают легенды.',
+    rules: 'Сложны в получении и удержании. Скорость распада: 600с. Стоимость укрепления: 10 AiHim.\n\nШанс при синтезе (с таким же):\n- Легендарный: 55%\n- Мифический: 40%\n- Божественный: 5%'
   },
   'Мифический': {
-    desc: 'Сущности, существующие на грани реальности и вымысла.',
-    rules: 'Требуют высокого уровня Ранга алхимика. Скорость распада: 960с. Стоимость укрепления: 16 AiHim.'
+    desc: 'Существуют на грани мифа и реальности.',
+    rules: 'Обладают огромной силой. Скорость распада: 1200с. Стоимость укрепления: 25 AiHim.\n\nШанс при синтезе (с таким же):\n- Мифический: 50%\n- Божественный: 45%\n- Вечный: 5%'
   },
   'Божественный': {
-    desc: 'Частицы воли высших сущностей.',
-    rules: 'Синтез возможен только при идеальном балансе энергий. Скорость распада: 1920с. Стоимость укрепления: 32 AiHim.'
+    desc: 'Частицы божественного творения.',
+    rules: 'Почти не поддаются распаду. Скорость распада: 3600с. Стоимость укрепления: 100 AiHim.\n\nШанс при синтезе (с таким же):\n- Божественный: 45%\n- Вечный: 50%\n- Космический: 5%'
   },
   'Вечный': {
-    desc: 'Элементы, неподвластные времени в своей основе.',
-    rules: 'Обладают огромным запасом стабильности. Скорость распада: 3840с. Стоимость укрепления: 64 AiHim.'
+    desc: 'Элементы, неподвластные времени.',
+    rules: 'Абсолютно стабильны в правильных руках. Скорость распада: 24ч. Стоимость укрепления: 500 AiHim.\n\nШанс при синтезе (с таким же):\n- Вечный: 40%\n- Космический: 55%\n- Изначальный: 5%'
   },
   'Космический': {
-    desc: 'Материя звезд и пустоты между галактиками.',
-    rules: 'Требуют 5-го Слоя Реальности для синтеза. Скорость распада: 7680с. Стоимость укрепления: 128 AiHim.'
+    desc: 'Энергия звезд и пустоты.',
+    rules: 'Требуют космического масштаба сознания. Скорость распада: 7 дней. Стоимость укрепления: 2500 AiHim.\n\nШанс при синтезе (с таким же):\n- Космический: 35%\n- Изначальный: 60%\n- Трансцендентный: 5%'
   },
   'Изначальный': {
     desc: 'То, что было до начала времен.',
-    rules: 'Фундаментальные кирпичики бытия. Скорость распада: 15360с. Стоимость укрепления: 256 AiHim.'
+    rules: 'Фундаментальные частицы бытия. Не распадаются. Стоимость укрепления: 10000 AiHim.\n\nШанс при синтезе (с таким же):\n- Изначальный: 30%\n- Трансцендентный: 65%\n- Запретный: 5%'
   },
   'Трансцендентный': {
-    desc: 'За пределами любого понимания и классификации.',
-    rules: 'Высшая точка алхимического искусства. Скорость распада: 30720с. Стоимость укрепления: 512 AiHim.'
+    desc: 'Выход за пределы понимания.',
+    rules: 'Существуют вне пространства и времени. Не распадаются. Стоимость укрепления: 50000 AiHim.\n\nШанс при синтезе (с таким же):\n- Трансцендентный: 25%\n- Запретный: 75%'
   },
   'Запретный': {
-    desc: 'Элементы, существование которых нарушает саму ткань реальности.',
-    rules: 'Синтез возможен только при наличии Аномалий. Скорость распада: 61440с. Стоимость укрепления: 1024 AiHim.'
-  },
+    desc: 'Знания, которые не должны были быть открыты.',
+    rules: 'Опасны для самого существования Вселенной. Не распадаются. Стоимость укрепления: 250000 AiHim.\n\nШанс при синтезе: Зависит от катализаторов-аномалий.'
+  }
 };
 
 export const ESSENCE_TRANSLATIONS: Record<string, string> = {
@@ -639,7 +708,11 @@ export const calculateUnlockedReality = (elements: AlchemyElement[]) => {
   });
 
   const maxConditionLevel = Math.max(1, ...unlockedLayers.map(l => l.level));
-  const maxDiscoveredLevel = Math.max(1, ...validElements.map(e => e.realityLevel || 1));
+  const maxDiscoveredLevel = validElements.reduce((max, e) => {
+    const level = Number(e.realityLevel);
+    return isNaN(level) ? max : Math.max(max, level);
+  }, 1);
 
+  // The unlocked reality is the HIGHEST of either met conditions OR discovered elements
   return Math.max(maxConditionLevel, maxDiscoveredLevel);
 };
