@@ -106,6 +106,12 @@ export default function App() {
     return saved ? parseInt(saved) : 1;
   });
 
+  const [selectedRealityLevel, setSelectedRealityLevel] = useState<number>(() => {
+    const saved = localStorage.getItem('aihim_selected_layer');
+    if (saved) return parseInt(saved);
+    return calculateUnlockedReality(discoveredElements);
+  });
+
   // Monitor Progress for Notifications
   useEffect(() => {
     const { currentRank, level } = calculateRank(discoveredElements.length);
@@ -150,6 +156,9 @@ export default function App() {
         });
         setPrevLayerLevel(maxReality);
         localStorage.setItem('aihim_prev_layer', maxReality.toString());
+        // Auto-switch to new layer if it's higher
+        setSelectedRealityLevel(maxReality);
+        localStorage.setItem('aihim_selected_layer', maxReality.toString());
       }
     }
   }, [discoveredElements.length, prevRankName, prevAlchemyLevel, prevLayerLevel]);
@@ -357,7 +366,7 @@ export default function App() {
       }
 
       const maxReality = calculateUnlockedReality(discoveredElements);
-      const currentLayer = REALITY_LAYERS.find(l => l.level === maxReality) || REALITY_LAYERS[0];
+      const currentLayer = REALITY_LAYERS.find(l => l.level === selectedRealityLevel) || REALITY_LAYERS[0];
       
       // Calculate which layers are "available" for discovery
       const availableLayers = REALITY_LAYERS.filter(layer => {
@@ -543,6 +552,11 @@ export default function App() {
                 setSlotB={(el) => el === null ? setSlotB(null) : handleTrySetSlot(el as AlchemyElement, 'B')}
                 aihim={aihim}
                 onOpenShop={() => setIsShopOpen(true)}
+                selectedRealityLevel={selectedRealityLevel}
+                onSelectRealityLevel={(level) => {
+                  setSelectedRealityLevel(level);
+                  localStorage.setItem('aihim_selected_layer', level.toString());
+                }}
               />
             </motion.div>
           )}

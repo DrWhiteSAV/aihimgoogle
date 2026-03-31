@@ -61,3 +61,31 @@ export const RareFlash: React.FC = () => (
     <div className="w-32 h-32 rounded-full bg-gold blur-2xl" />
   </motion.div>
 );
+
+export const ForgeSparks: React.FC<{ active: boolean }> = ({ active }) => {
+  if (!active) return null;
+  
+  return (
+    <div className="absolute inset-0 pointer-events-none z-30">
+      {[...Array(12)].map((_, i) => (
+        <motion.div
+          key={i}
+          initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
+          animate={{ 
+            x: (Math.random() - 0.5) * 200, 
+            y: (Math.random() - 0.5) * 200 - 50,
+            opacity: 0,
+            scale: 0,
+            rotate: Math.random() * 360
+          }}
+          transition={{ duration: 0.4 + Math.random() * 0.3, ease: "easeOut" }}
+          className="absolute left-1/2 top-1/2 w-1 h-3 bg-gold rounded-full blur-[1px]"
+          style={{ 
+            boxShadow: '0 0 10px #C9A343',
+            transformOrigin: 'center'
+          }}
+        />
+      ))}
+    </div>
+  );
+};

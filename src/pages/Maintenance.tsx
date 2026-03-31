@@ -1,10 +1,22 @@
 import React, { useState, useMemo } from 'react';
 import { AlchemyElement, Rarity } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Hammer, Thermometer, Zap, Shield, ArrowUp, ArrowDown, Sparkles, AlertCircle, Search, Heart } from 'lucide-react';
-import { RARITY_COLORS, STABILITY_TAP_COST, translateEssence, calculateRank } from '../constants';
+import { 
+  Hammer, 
+  Thermometer, 
+  Zap, 
+  Shield, 
+  ArrowUp, 
+  ArrowDown, 
+  Sparkles, 
+  AlertCircle, 
+  Search, 
+  Heart, 
+  RefreshCw 
+} from 'lucide-react';
+import { ForgeSparks } from '../components/Animations';
 import { ElementCard } from '../components/ElementCard';
-import { RefreshCw } from 'lucide-react';
+import { RARITY_COLORS, STABILITY_TAP_COST, translateEssence, calculateRank } from '../constants';
 import { cn } from '../lib/utils';
 
 interface MaintenanceProps {
@@ -37,6 +49,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'low-stability' | 'extreme-temp'>('all');
   const [favoriteFilter, setFavoriteFilter] = useState<boolean>(false);
+  const [isAnvilActive, setIsAnvilActive] = useState(false);
 
   React.useEffect(() => {
     if (initialElementId) {
@@ -88,9 +101,10 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
   const handleTap = (type: 'heat' | 'cool' | 'stability' = 'stability') => {
     if (!selectedElement || aihim < tapAmount) return;
 
-    setAihim(prev => prev - tapAmount);
-
     if (type === 'stability') {
+      if ((selectedElement.stability ?? 100) >= 100) return;
+      
+      setAihim(prev => prev - tapAmount);
       const cost = STABILITY_TAP_COST[selectedElement.rarity] || 1;
       const totalProgress = tapCount + tapAmount;
       const stabilityGain = Math.floor(totalProgress / cost);
@@ -104,19 +118,31 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
         ));
       }
       setTapCount(remainingProgress);
-    } else if (type === 'heat') {
-      setElements(current => current.map(el => 
-        (el && el.id === selectedElement.id) 
-          ? { ...el, temperature: Math.min(1000, (el.temperature ?? 0) + tapAmount) }
-          : el
-      ));
-    } else if (type === 'cool') {
-      setElements(current => current.map(el => 
-        (el && el.id === selectedElement.id) 
-          ? { ...el, temperature: Math.max(-273, (el.temperature ?? 0) - tapAmount) }
-          : el
-      ));
+    } else {
+      setAihim(prev => prev - tapAmount);
+      if (type === 'heat') {
+        setElements(current => current.map(el => 
+          (el && el.id === selectedElement.id) 
+            ? { ...el, temperature: Math.min(1000, (el.temperature ?? 0) + tapAmount) }
+            : el
+        ));
+      } else if (type === 'cool') {
+        setElements(current => current.map(el => 
+          (el && el.id === selectedElement.id) 
+            ? { ...el, temperature: Math.max(-273, (el.temperature ?? 0) - tapAmount) }
+            : el
+        ));
+      }
     }
+  };
+
+  const handleAnvilClick = () => {
+    if (!selectedElement || aihim < tapAmount || (selectedElement.stability ?? 100) >= 100) return;
+    if (isAnvilActive) return;
+    
+    handleTap('stability');
+    setIsAnvilActive(true);
+    setTimeout(() => setIsAnvilActive(false), 300);
   };
 
   const handleTempChange = (delta: number) => {
@@ -325,83 +351,162 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9 }}
-                    className="flex flex-col items-center w-full max-w-2xl"
+                    className="flex flex-col items-center w-full max-w-4xl"
                   >
-                    <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 w-full">
-                      <div className="relative">
-                        <div className="absolute -inset-4 bg-gold/20 blur-2xl rounded-full animate-pulse" />
-                        <ElementCard element={selectedElement} className="relative z-10 scale-110 md:scale-125" />
-                        
-                        {/* Tap Amount Slider */}
-                        <div className="mt-8 md:mt-12 bg-parchment/60 backdrop-blur-sm p-4 rounded-xl border border-ink/90 w-full">
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-[10px] uppercase font-bold text-sepia/60 tracking-widest">Расход за тап</span>
-                            <span className="text-xs font-bold text-gold">{tapAmount} AiHim</span>
+                    {activeSubTab === 'stability' ? (
+                      <div className="flex flex-col items-center gap-4 md:gap-8 w-full">
+                        {/* Anvil Interaction Area */}
+                        <div className="relative flex flex-col items-center justify-center min-h-[400px] md:min-h-[450px] w-full">
+                          
+                          {/* Element Card and Slider - Responsive layout */}
+                          <div className="relative md:absolute md:left-0 lg:left-4 xl:left-10 md:top-0 z-20 flex flex-col items-center md:items-start mb-8 md:mb-0 scale-90 md:scale-100">
+                            <div className="opacity-90 hover:opacity-100 transition-opacity">
+                              <ElementCard element={selectedElement} />
+                            </div>
+                            
+                            {/* Tap Amount Slider */}
+                            <div className="mt-4 bg-parchment/90 backdrop-blur-sm p-3 rounded-lg border-2 border-ink/90 w-48 shadow-xl">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-[8px] uppercase font-bold text-sepia/60 tracking-widest">Расход</span>
+                                <span className="text-[10px] font-bold text-gold">{tapAmount} AiHim</span>
+                              </div>
+                              <input 
+                                type="range"
+                                min="1"
+                                max={Math.max(1, level)}
+                                value={tapAmount}
+                                onChange={(e) => setTapAmount(parseInt(e.target.value))}
+                                className="w-full h-1 accent-gold cursor-pointer"
+                              />
+                            </div>
                           </div>
-                          <input 
-                            type="range"
-                            min="1"
-                            max={Math.max(1, level)}
-                            value={tapAmount}
-                            onChange={(e) => setTapAmount(parseInt(e.target.value))}
-                            className="w-full accent-gold cursor-pointer"
-                          />
-                          <div className="flex justify-between text-[8px] text-sepia/40 mt-1 uppercase font-bold">
-                            <span>1</span>
-                            <span>Макс: {level}</span>
+
+                          {/* The Anvil Sprites - Centered and Raised */}
+                          <div className="relative z-10 flex flex-col items-center md:-mt-28">
+                            <motion.div
+                              className="relative cursor-pointer select-none group w-60 md:w-72 aspect-square flex items-center justify-center"
+                              onClick={handleAnvilClick}
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                            >
+                              {/* Background Glow Animation */}
+                              <motion.div
+                                className="absolute inset-0 bg-gold/20 blur-3xl rounded-full -z-10"
+                                animate={{ 
+                                  scale: [1, 1.3, 1],
+                                  opacity: [0.1, 0.4, 0.1]
+                                }}
+                                transition={{ 
+                                  duration: 2.5,
+                                  repeat: Infinity,
+                                  ease: "easeInOut"
+                                }}
+                              />
+
+                              <AnimatePresence initial={false}>
+                                {!isAnvilActive ? (
+                                  <motion.div
+                                    key="anvil-idle"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    transition={{ duration: 0.15 }}
+                                    className="absolute inset-0 flex items-center justify-center"
+                                  >
+                                    <img 
+                                      src="https://i.ibb.co/Cpj3FrM7/Nakvalnia2.png" 
+                                      alt="Anvil Idle" 
+                                      className="w-full h-auto pointer-events-none drop-shadow-[0_0_20px_rgba(201,163,67,0.4)]"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                    {/* Idle Pulsing Sparkles */}
+                                    <motion.div
+                                      className="absolute inset-0 -z-10"
+                                      animate={{ 
+                                        opacity: [0.2, 0.5, 0.2],
+                                        scale: [0.9, 1.1, 0.9]
+                                      }}
+                                      transition={{ duration: 3, repeat: Infinity }}
+                                    >
+                                      <div className="w-full h-full bg-gold/5 blur-3xl rounded-full" />
+                                    </motion.div>
+                                  </motion.div>
+                                ) : (
+                                  <motion.div
+                                    key="anvil-active"
+                                    initial={{ opacity: 0, scale: 1.1 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    transition={{ duration: 0.05 }}
+                                    className="absolute inset-0 flex items-center justify-center"
+                                  >
+                                    <img 
+                                      src="https://i.ibb.co/HpbkNmtr/Nakvalnia.png" 
+                                      alt="Anvil Strike" 
+                                      className="w-full h-auto pointer-events-none drop-shadow-[0_0_30px_rgba(201,163,67,0.7)]"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                    <ForgeSparks active={isAnvilActive} />
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </motion.div>
+
+                            {/* Info Block Under Sprites */}
+                            <div className="mt-8 flex flex-col items-center gap-4 w-full max-w-md px-4">
+                              <div className="bg-parchment/90 backdrop-blur-md p-4 rounded-xl border-2 border-ink/90 text-center shadow-2xl w-full">
+                                <h3 className="font-gothic text-xl text-sepia mb-1 tracking-widest">УКРЕПЛЕНИЕ</h3>
+                                <div className="flex flex-col gap-1">
+                                  <p className="text-[10px] uppercase font-bold text-sepia/60 tracking-widest">
+                                    Стабильность: {selectedElement.stability ?? 100}%
+                                  </p>
+                                  <p className="text-[9px] text-gold font-bold uppercase tracking-widest">
+                                    1 цикл = +1% структуры
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="w-full bg-ink/30 h-8 rounded-full overflow-hidden border-2 border-gold/40 relative shadow-inner">
+                                <motion.div 
+                                  className="h-full bg-gradient-to-r from-gold/80 via-gold to-gold/80 shadow-[0_0_20px_rgba(201,163,67,0.6)]"
+                                  animate={{ width: `${progress}%` }}
+                                />
+                                <div className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-white uppercase tracking-widest drop-shadow-md">
+                                  {tapCount} / {cost} ЭНЕРГИИ
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
-
-                      <div className="flex flex-col items-center md:items-start gap-6 w-full max-w-sm">
-                        {activeSubTab === 'stability' ? (
-                          <div className="w-full flex flex-col gap-4">
-                            <div className="bg-parchment/60 backdrop-blur-sm p-4 rounded-xl border border-ink/90 text-center md:text-left">
-                              <h3 className="font-gothic text-xl text-sepia mb-1">УКРЕПЛЕНИЕ</h3>
-                              <div className="flex flex-col gap-1">
-                                <p className="text-[10px] uppercase font-bold text-sepia/60 tracking-widest">
-                                  Стабильность: {selectedElement.stability ?? 100}%
-                                </p>
-                                <p className="text-[9px] text-gold font-bold uppercase tracking-widest">
-                                  1 цикл = +1% структуры
-                                </p>
-                              </div>
+                    ) : (
+                      <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 w-full">
+                        <div className="relative">
+                          <div className="absolute -inset-4 bg-gold/20 blur-2xl rounded-full animate-pulse" />
+                          <ElementCard element={selectedElement} className="relative z-10 scale-110 md:scale-125" />
+                          
+                          {/* Tap Amount Slider */}
+                          <div className="mt-8 md:mt-12 bg-parchment/60 backdrop-blur-sm p-4 rounded-xl border border-ink/90 w-full">
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-[10px] uppercase font-bold text-sepia/60 tracking-widest">Расход за тап</span>
+                              <span className="text-xs font-bold text-gold">{tapAmount} AiHim</span>
                             </div>
-
-                            <div className="w-full bg-ink/20 h-6 rounded-full overflow-hidden border border-gold/40 relative">
-                              <motion.div 
-                                className="h-full bg-gold shadow-[0_0_15px_rgba(201,163,67,0.5)]"
-                                animate={{ width: `${progress}%` }}
-                              />
-                              <div className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-white uppercase tracking-widest drop-shadow-md">
-                                {tapCount} / {cost} ЭНЕРГИИ
-                              </div>
+                            <input 
+                              type="range"
+                              min="1"
+                              max={Math.max(1, level)}
+                              value={tapAmount}
+                              onChange={(e) => setTapAmount(parseInt(e.target.value))}
+                              className="w-full accent-gold cursor-pointer"
+                            />
+                            <div className="flex justify-between text-[8px] text-sepia/40 mt-1 uppercase font-bold">
+                              <span>1</span>
+                              <span>Макс: {level}</span>
                             </div>
-
-                            <motion.button
-                              whileHover={{ scale: 1.05, boxShadow: "0 0 50px rgba(201, 163, 67, 0.8)" }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => handleTap('stability')}
-                              disabled={(selectedElement.stability ?? 100) >= 100 || aihim <= 0}
-                              className={`w-full px-10 py-5 rounded-2xl font-gothic text-2xl md:text-3xl tracking-[0.2em] md:tracking-[0.4em] transition-all duration-500 relative overflow-hidden group border-2 backdrop-blur-sm flex items-center justify-center gap-4 ${
-                                (selectedElement.stability ?? 100) < 100 && aihim > 0
-                                  ? 'bg-gold/70 text-white border-ink/90 cursor-pointer' 
-                                  : 'bg-parchment/40 text-ink/40 border-ink/30 cursor-not-allowed'
-                              }`}
-                            >
-                              <Zap size={24} className={tapCount > 0 ? "animate-pulse text-white" : "text-white/60"} />
-                              <span className="relative z-10 font-black">УКРЕПИТЬ</span>
-                              {(selectedElement.stability ?? 100) < 100 && aihim > 0 && (
-                                <motion.div 
-                                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
-                                  initial={{ x: '-100%' }}
-                                  animate={{ x: '100%' }}
-                                  transition={{ repeat: Infinity, duration: 2, ease: 'linear' }}
-                                />
-                              )}
-                            </motion.button>
                           </div>
-                        ) : (
+                        </div>
+
+                        <div className="flex flex-col items-center md:items-start gap-6 w-full max-w-sm">
                           <div className="w-full flex flex-col gap-4">
                             <div className="bg-parchment/60 backdrop-blur-sm p-4 rounded-xl border border-ink/90 text-center md:text-left">
                               <h3 className="font-gothic text-xl text-sepia mb-1">ТЕРМОКОНТРОЛЬ</h3>
@@ -454,9 +559,9 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
                               </p>
                             </div>
                           </div>
-                        )}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </motion.div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-20 opacity-60">

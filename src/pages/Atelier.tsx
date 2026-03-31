@@ -45,6 +45,8 @@ interface AtelierProps {
   setSlotB: React.Dispatch<React.SetStateAction<AlchemyElement | null>>;
   aihim: number;
   onOpenShop: () => void;
+  selectedRealityLevel: number;
+  onSelectRealityLevel: (level: number) => void;
 }
 
 const LAYER_ICONS: Record<number, any> = {
@@ -62,10 +64,26 @@ const LAW_ICONS: Record<string, any> = {
   'Hourglass': Hourglass,
 };
 
-const UniverseStatus = ({ elements, worldPhase, phaseTimer, aihim, onOpenShop }: { elements: AlchemyElement[], worldPhase: WorldPhase, phaseTimer: number, aihim: number, onOpenShop: () => void }) => {
+const UniverseStatus = ({ 
+  elements, 
+  worldPhase, 
+  phaseTimer, 
+  aihim, 
+  onOpenShop,
+  selectedRealityLevel,
+  onSelectRealityLevel
+}: { 
+  elements: AlchemyElement[], 
+  worldPhase: WorldPhase, 
+  phaseTimer: number, 
+  aihim: number, 
+  onOpenShop: () => void,
+  selectedRealityLevel: number,
+  onSelectRealityLevel: (level: number) => void
+}) => {
   const maxReality = calculateUnlockedReality(elements);
-  const currentLayer = REALITY_LAYERS.find(l => l.level === maxReality) || REALITY_LAYERS[0];
-  const LayerIcon = LAYER_ICONS[maxReality] || Shield;
+  const currentLayer = REALITY_LAYERS.find(l => l.level === selectedRealityLevel) || REALITY_LAYERS[0];
+  const LayerIcon = LAYER_ICONS[selectedRealityLevel] || Shield;
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -74,50 +92,71 @@ const UniverseStatus = ({ elements, worldPhase, phaseTimer, aihim, onOpenShop }:
   };
 
   return (
-    <div className="w-full parchment-card p-2 md:p-3 bg-gold/5 border-ink/20 flex flex-col md:flex-row items-center justify-between gap-2 md:gap-4 mb-4">
-      <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 md:gap-4">
-        <div className="flex items-center gap-2 md:gap-3">
-          <div className="p-1.5 md:p-2 bg-gold/20 rounded-full text-gold gold-glow">
-            <LayerIcon size={14} className="md:w-[18px] md:h-[18px]" />
+    <div className="flex flex-col gap-2 mb-4">
+      <div className="w-full parchment-card p-2 md:p-3 bg-gold/5 border-ink/20 flex flex-col md:flex-row items-center justify-between gap-2 md:gap-4">
+        <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 md:gap-4">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="p-1.5 md:p-2 bg-gold/20 rounded-full text-gold gold-glow">
+              <LayerIcon size={14} className="md:w-[18px] md:h-[18px]" />
+            </div>
+            <div className="relative group">
+              <div className="text-[7px] md:text-[8px] uppercase tracking-widest text-gold font-bold">Слой Реальности</div>
+              <select 
+                value={selectedRealityLevel}
+                onChange={(e) => onSelectRealityLevel(parseInt(e.target.value))}
+                className="bg-transparent font-gothic text-xs md:text-sm tracking-widest outline-none cursor-pointer hover:text-gold transition-colors appearance-none pr-4"
+              >
+                {REALITY_LAYERS.filter(l => l.level <= maxReality).map(layer => (
+                  <option key={layer.level} value={layer.level} className="bg-parchment text-ink">
+                    {layer.name}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-gold/40">
+                <Plus size={10} className="rotate-45" />
+              </div>
+            </div>
           </div>
-          <div>
-            <div className="text-[7px] md:text-[8px] uppercase tracking-widest text-gold font-bold">Слой Реальности</div>
-            <div className="font-gothic text-xs md:text-sm tracking-widest">{currentLayer.name}</div>
-          </div>
-        </div>
 
-        <div className="h-6 md:h-8 w-px bg-gold/20 hidden md:block" />
+          <div className="h-6 md:h-8 w-px bg-gold/20 hidden md:block" />
 
-        <div className="flex items-center gap-2 md:gap-3">
-          <div className={`p-1 md:p-1.5 rounded-full ${worldPhase === 'day' ? 'bg-yellow-500/20 text-yellow-500' : 'bg-indigo-500/20 text-indigo-400'}`}>
-            {worldPhase === 'day' ? <Sun size={14} className="md:w-[16px] md:h-[16px]" /> : <Moon size={14} className="md:w-[16px] md:h-[16px]" />}
-          </div>
-          <div>
-            <div className="text-[7px] md:text-[8px] uppercase tracking-widest text-sepia/50 font-bold">Фаза Мира</div>
-            <div className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 md:gap-2">
-              {worldPhase === 'day' ? 'День' : 'Ночь'}
-              <span className="font-mono text-[10px] md:text-[12px] opacity-80 text-gold">({formatTime(phaseTimer)})</span>
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className={`p-1 md:p-1.5 rounded-full ${worldPhase === 'day' ? 'bg-yellow-500/20 text-yellow-500' : 'bg-indigo-500/20 text-indigo-400'}`}>
+              {worldPhase === 'day' ? <Sun size={14} className="md:w-[16px] md:h-[16px]" /> : <Moon size={14} className="md:w-[16px] md:h-[16px]" />}
+            </div>
+            <div>
+              <div className="text-[7px] md:text-[8px] uppercase tracking-widest text-sepia/50 font-bold">Фаза Мира</div>
+              <div className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 md:gap-2">
+                {worldPhase === 'day' ? 'День' : 'Ночь'}
+                <span className="font-mono text-[10px] md:text-[12px] opacity-80 text-gold">({formatTime(phaseTimer)})</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="flex items-center gap-3 md:gap-6">
-        <div className="flex items-center gap-2 md:gap-3 bg-sepia/5 px-3 py-1.5 rounded-full border border-gold/20">
-          <img src="https://i.ibb.co/5g4dfh7f/aihim.png" alt="AIhim" className="w-4 h-4 md:w-5 md:h-5 object-contain" />
-          <div className="flex flex-col">
-            <span className="text-[7px] md:text-[8px] uppercase font-bold text-sepia/50 leading-none">Баланс AIhim</span>
-            <span className="text-xs md:text-sm font-bold text-gold leading-none">{aihim}</span>
+        <div className="flex items-center gap-3 md:gap-6">
+          <div className="flex items-center gap-2 md:gap-3 bg-sepia/5 px-3 py-1.5 rounded-full border border-gold/20">
+            <img src="https://i.ibb.co/5g4dfh7f/aihim.png" alt="AIhim" className="w-4 h-4 md:w-5 md:h-5 object-contain" />
+            <div className="flex flex-col">
+              <span className="text-[7px] md:text-[8px] uppercase font-bold text-sepia/50 leading-none">Баланс AIhim</span>
+              <span className="text-xs md:text-sm font-bold text-gold leading-none">{aihim}</span>
+            </div>
           </div>
+          
+          <button 
+            onClick={onOpenShop}
+            className="flex items-center gap-2 px-3 py-1.5 bg-gold text-white rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest hover:bg-gold/80 transition-colors shadow-lg gold-glow"
+          >
+            <Plus size={12} />
+            КУПИТЬ
+          </button>
         </div>
-        
-        <button 
-          onClick={onOpenShop}
-          className="flex items-center gap-2 px-3 py-1.5 bg-gold text-white rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest hover:bg-gold/80 transition-colors shadow-lg gold-glow"
-        >
-          <Plus size={12} />
-          КУПИТЬ
-        </button>
+      </div>
+      <div className="px-4 py-1.5 bg-gold/5 border border-gold/10 rounded-lg flex items-center gap-2">
+        <Info size={12} className="text-gold" />
+        <p className="text-[9px] md:text-[10px] text-sepia/70 italic">
+          Выбранный слой реальности влияет на синтез. Разные слои позволяют открывать разные грани элементов.
+        </p>
       </div>
     </div>
   );
@@ -182,7 +221,9 @@ export const Atelier: React.FC<AtelierProps> = ({
   slotB,
   setSlotB,
   aihim,
-  onOpenShop
+  onOpenShop,
+  selectedRealityLevel,
+  onSelectRealityLevel
 }) => {
   const [search, setSearch] = useState('');
   const [favoriteFilter, setFavoriteFilter] = useState<boolean>(false);
@@ -301,7 +342,15 @@ export const Atelier: React.FC<AtelierProps> = ({
         onDragEnd={handleDragEnd}
       >
         {/* Universe State (New) */}
-        <UniverseStatus elements={elements} worldPhase={worldPhase} phaseTimer={phaseTimer} aihim={aihim} onOpenShop={onOpenShop} />
+        <UniverseStatus 
+          elements={elements} 
+          worldPhase={worldPhase} 
+          phaseTimer={phaseTimer} 
+          aihim={aihim} 
+          onOpenShop={onOpenShop}
+          selectedRealityLevel={selectedRealityLevel}
+          onSelectRealityLevel={onSelectRealityLevel}
+        />
 
         {/* Rank & Level Display (New) */}
         <div className="parchment-card p-4 bg-sepia/5 border-gold/20 flex flex-col gap-4">
