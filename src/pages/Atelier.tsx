@@ -5,7 +5,7 @@ import { ElementDetailsModal } from '../components/ElementDetailsModal';
 import { VortexAnimation, MagicParticles, RareFlash } from '../components/Animations';
 import { motion, AnimatePresence } from 'motion/react';
 import { Plus, Sparkles, Search, X, Info, Zap, Shield, Eye, Globe, Sun, Moon, AlertCircle, Thermometer, Contrast, Leaf, Hourglass } from 'lucide-react';
-import { REALITY_LAYERS, HIDDEN_LAWS, calculateRank, translateEssence } from '../constants';
+import { REALITY_LAYERS, HIDDEN_LAWS, calculateRank, translateEssence, calculateUnlockedReality } from '../constants';
 import { 
   DndContext, 
   closestCenter,
@@ -61,7 +61,7 @@ const LAW_ICONS: Record<string, any> = {
 };
 
 const UniverseStatus = ({ elements, worldPhase, phaseTimer, aihim, onOpenShop }: { elements: AlchemyElement[], worldPhase: WorldPhase, phaseTimer: number, aihim: number, onOpenShop: () => void }) => {
-  const maxReality = Math.max(1, ...elements.map(e => e.realityLevel || 1));
+  const maxReality = calculateUnlockedReality(elements);
   const currentLayer = REALITY_LAYERS.find(l => l.level === maxReality) || REALITY_LAYERS[0];
   const LayerIcon = LAYER_ICONS[maxReality] || Shield;
 
@@ -374,7 +374,6 @@ export const Atelier: React.FC<AtelierProps> = ({
                   <ElementCard
                     key={element.id}
                     element={element}
-                    compact
                     isDraggable
                     isSelected={slotA?.id === element.id || slotB?.id === element.id}
                     onClick={() => onSelectElement(element)}

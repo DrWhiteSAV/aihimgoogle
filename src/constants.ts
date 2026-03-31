@@ -600,3 +600,44 @@ export const calculateRank = (totalElements: number) => {
     elementsToNextLevel: 20 - elementsInCurrentLevel
   };
 };
+
+export const calculateUnlockedReality = (elements: AlchemyElement[]) => {
+  const totalElements = elements.length;
+  const { currentRank } = calculateRank(totalElements);
+  const rarityCounts = elements.reduce((acc, el) => {
+    acc[el.rarity] = (acc[el.rarity] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Find the highest layer where conditions are met
+  const unlockedLayers = REALITY_LAYERS.filter(layer => {
+    if (layer.level === 1) return true;
+    
+    const cond = layer.conditions;
+    if (!cond) return false;
+
+    // Check elements count
+    if (cond.elements !== undefined && totalElements < cond.elements) return false;
+
+    // Check rarity requirements
+    if (cond.rarity) {
+      for (const [rarity, count] of Object.entries(cond.rarity)) {
+        if ((rarityCounts[rarity] || 0) < count) return false;
+      }
+    }
+
+    // Check rank requirement
+    if (cond.rank && currentRank.name !== cond.rank) {
+      // If it's a specific rank, we might need to check if current rank is at least that rank
+      // For now, simple equality as per constants
+      return false;
+    }
+
+    // Check level requirement
+    if (cond.level && Math.floor(totalElements / 20) + 1 < cond.level) return false;
+
+    return true;
+  });
+
+  return Math.max(1, ...unlockedLayers.map(l => l.level));
+};

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AlchemyElement, WorldPhase, CombinationResult } from './types';
-import { INITIAL_ELEMENTS, calculateRank, HIDDEN_LAWS, REALITY_LAYERS, STABILITY_DECAY_INTERVAL, TEMPERATURE_DECAY_INTERVAL } from './constants';
+import { INITIAL_ELEMENTS, calculateRank, HIDDEN_LAWS, REALITY_LAYERS, STABILITY_DECAY_INTERVAL, TEMPERATURE_DECAY_INTERVAL, calculateUnlockedReality } from './constants';
 import { Atelier } from './pages/Atelier';
 import { Bestiary } from './pages/Bestiary';
 import { Profile } from './pages/Profile';
@@ -109,7 +109,7 @@ export default function App() {
   // Monitor Progress for Notifications
   useEffect(() => {
     const { currentRank, level } = calculateRank(discoveredElements.length);
-    const maxReality = Math.max(1, ...discoveredElements.map(e => (e && e.realityLevel) || 1));
+    const maxReality = calculateUnlockedReality(discoveredElements);
 
     // Rank Notification
     if (currentRank.name !== prevRankName) {
@@ -331,7 +331,7 @@ export default function App() {
         return;
       }
 
-      const maxReality = Math.max(1, ...discoveredElements.map(e => (e && e.realityLevel) || 1));
+      const maxReality = calculateUnlockedReality(discoveredElements);
       const currentLayer = REALITY_LAYERS.find(l => l.level === maxReality) || REALITY_LAYERS[0];
       
       // Calculate which layers are "available" for discovery

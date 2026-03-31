@@ -243,7 +243,6 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
                   <ElementCard 
                     key={el.id} 
                     element={el} 
-                    compact 
                     isSelected={selectedId === el.id}
                     onClick={() => {
                       setSelectedId(el.id);
@@ -265,7 +264,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
           <div className="w-full max-w-2xl h-px bg-gradient-to-r from-transparent via-sepia/20 to-transparent opacity-50" />
           
           <div 
-            className="relative flex flex-col items-center justify-center gap-4 py-8 md:py-12 px-4 md:px-8 w-full max-w-4xl !overflow-visible bg-no-repeat bg-center bg-cover border-4 border-gold/20 rounded-[2rem] md:rounded-[3rem] aspect-[4/5] md:aspect-video transition-all duration-500 mx-auto shadow-2xl"
+            className="relative flex flex-col items-center justify-center gap-4 py-8 md:py-12 px-4 md:px-8 w-full max-w-5xl !overflow-visible bg-no-repeat bg-center bg-cover border-4 border-gold/20 rounded-[2rem] md:rounded-[3rem] aspect-[4/5] md:aspect-[16/10] transition-all duration-500 mx-auto shadow-2xl"
             style={{ 
               backgroundImage: "url('https://i.ibb.co/q3WTWZVr/kuznyaaihim.png')",
             }}
@@ -277,7 +276,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
               КУЗНЕЧНЫЙ ГОРН
             </div>
 
-            <div className="w-full z-10 flex flex-col items-center gap-6">
+            <div className="relative z-10 flex flex-col items-center gap-4 md:gap-8 w-full max-w-4xl">
               <AnimatePresence mode="wait">
                 {selectedElement ? (
                   <motion.div
@@ -443,7 +442,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
                     <div className="w-24 h-24 rounded-full border-2 border-dashed border-gold/40 flex items-center justify-center mb-4">
                       <Sparkles size={40} className="text-gold/40 animate-pulse" />
                     </div>
-                    <p className="font-gothic text-xl text-ink tracking-widest text-center">
+                    <p className="font-gothic text-xl text-sepia-900 tracking-widest text-center">
                       ВЫБЕРИТЕ СУЩНОСТЬ <br /> ДЛЯ РАБОТЫ В ГОРНЕ
                     </p>
                   </div>
