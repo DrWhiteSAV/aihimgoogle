@@ -8,7 +8,8 @@ export type Rarity =
   | 'Вечный' 
   | 'Космический' 
   | 'Изначальный' 
-  | 'Трансцендентный';
+  | 'Трансцендентный'
+  | 'Запретный';
 export type ElementType = 'Материя' | 'Энергия' | 'Гибрид' | 'Аномалия';
 export type ElementState = 'Твердое' | 'Жидкое' | 'Газ' | 'Плазма' | 'Эфир';
 export type Essence = 'life' | 'death' | 'order' | 'chaos' | 'void' | 'creation' | 'destruction';

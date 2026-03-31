@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlchemyElement, Rarity } from '../types';
 import { Sparkles, Zap, Shield, Eye, Globe, Thermometer, Contrast, Leaf, Hourglass, X, Info, ExternalLink, Youtube, Send, MessageSquare } from 'lucide-react';
-import { REALITY_LAYERS, HIDDEN_LAWS, calculateRank, INITIAL_ELEMENTS, RANKS, RARITY_DETAILS, RARITY_COLORS } from '../constants';
+import { REALITY_LAYERS, HIDDEN_LAWS, calculateRank, INITIAL_ELEMENTS, RANKS, RARITY_DETAILS, RARITY_COLORS, ELEMENT_TYPE_DETAILS, ESSENCE_DETAILS, translateEssence } from '../constants';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -38,6 +38,8 @@ export const Arcana: React.FC<ArcanaProps> = ({ onReset, elements, aihim, setAih
   const [selectedLayer, setSelectedLayer] = useState<any>(null);
   const [selectedRank, setSelectedRank] = useState<any>(null);
   const [selectedRarity, setSelectedRarity] = useState<any>(null);
+  const [selectedType, setSelectedType] = useState<any>(null);
+  const [selectedEssence, setSelectedEssence] = useState<any>(null);
   const validElements = elements.filter(e => e !== null);
   const maxReality = Math.max(1, ...validElements.map(e => e.realityLevel || 1));
   const totalElements = validElements.length;
@@ -109,33 +111,66 @@ export const Arcana: React.FC<ArcanaProps> = ({ onReset, elements, aihim, setAih
         <h3 className="font-gothic text-xl tracking-widest text-gold text-center uppercase">Законы Мироздания</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {HIDDEN_LAWS.map((law) => {
-            const isDiscovered = (law.id === 'temp') ||
-                                (law.id === 'stab') ||
-                                (law.id === 'daynight') ||
-                                (law.id === 'opp' && validElements.some(e => e && e.essences?.includes('void')) && validElements.some(e2 => e2 && e2.essences?.includes('creation'))) ||
-                                (law.id === 'life' && validElements.some(e => e && e.essences?.includes('life'))) ||
-                                (law.id === 'time' && totalElements > 20);
             return (
               <div 
                 key={law.id} 
-                onClick={() => isDiscovered && setSelectedLaw(law)}
-                className={`flex items-center gap-4 p-3 rounded border transition-all ${isDiscovered ? 'bg-gold/5 border-gold/20 cursor-pointer hover:bg-gold/10' : 'opacity-20 border-sepia/10 blur-[1px]'}`}
+                onClick={() => setSelectedLaw(law)}
+                className="flex items-center gap-4 p-3 rounded border transition-all bg-gold/5 border-gold/20 cursor-pointer hover:bg-gold/10"
               >
                 <div className="p-2 rounded-full bg-gold/10 text-gold">
-                  {isDiscovered ? (
-                    React.createElement(LAW_ICONS[law.icon] || Sparkles, { size: 20 })
-                  ) : (
-                    <span className="text-xl">?</span>
-                  )}
+                  {React.createElement(LAW_ICONS[law.icon] || Sparkles, { size: 20 })}
                 </div>
                 <div className="flex-1">
-                  <span className="font-bold text-sm block">{isDiscovered ? law.name : 'Тайный Закон'}</span>
-                  <p className="text-[10px] italic opacity-70">{isDiscovered ? law.desc : 'Условия открытия неизвестны...'}</p>
+                  <span className="font-bold text-sm block">{law.name}</span>
+                  <p className="text-[10px] italic opacity-70">{law.desc}</p>
                 </div>
-                {isDiscovered && <Info size={14} className="text-gold/40" />}
+                <Info size={14} className="text-gold/40" />
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Element Types & Essences */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="parchment-card p-6 space-y-6">
+          <h3 className="font-gothic text-xl tracking-widest text-gold text-center uppercase">Типы Элементов</h3>
+          <div className="grid grid-cols-2 gap-3">
+            {Object.entries(ELEMENT_TYPE_DETAILS).map(([type, details]) => {
+              const count = validElements.filter(e => e.type === type).length;
+              return (
+                <motion.div
+                  key={type}
+                  whileHover={{ scale: 1.05 }}
+                  onClick={() => setSelectedType({ name: type, ...details })}
+                  className="p-3 rounded-lg border border-gold/20 bg-gold/5 cursor-pointer hover:bg-gold/10 transition-all flex flex-col items-center text-center gap-1"
+                >
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gold">{type}</span>
+                  <div className="text-xs font-mono text-sepia/60">{count}</div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="parchment-card p-6 space-y-6">
+          <h3 className="font-gothic text-xl tracking-widest text-gold text-center uppercase">Сущности (Эссенции)</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-3 gap-3">
+            {Object.entries(ESSENCE_DETAILS).map(([essence, details]) => {
+              const count = validElements.filter(e => e.essences?.includes(essence as any)).length;
+              return (
+                <motion.div
+                  key={essence}
+                  whileHover={{ scale: 1.05 }}
+                  onClick={() => setSelectedEssence({ name: essence, ...details })}
+                  className="p-3 rounded-lg border border-gold/20 bg-gold/5 cursor-pointer hover:bg-gold/10 transition-all flex flex-col items-center text-center gap-1"
+                >
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gold">{translateEssence(essence as any)}</span>
+                  <div className="text-xs font-mono text-sepia/60">{count}</div>
+                </motion.div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -448,6 +483,92 @@ export const Arcana: React.FC<ArcanaProps> = ({ onReset, elements, aihim, setAih
                 </div>
                 <div className="w-full h-px bg-sepia/10" />
                 <p className="text-[9px] text-sepia/40 uppercase tracking-widest">Редкость определяет ценность и сложность элемента</p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Type Modal */}
+      <AnimatePresence>
+        {selectedType && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-ink/80 backdrop-blur-md"
+            onClick={() => setSelectedType(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="parchment-card max-w-md w-full p-8 relative"
+              onClick={e => e.stopPropagation()}
+            >
+              <button onClick={() => setSelectedType(null)} className="absolute top-4 right-4 text-sepia/40 hover:text-sepia"><X size={20} /></button>
+              <div className="flex flex-col items-center text-center gap-6">
+                <div className="w-20 h-20 rounded-full bg-gold/10 flex items-center justify-center text-gold border border-gold/20 shadow-xl">
+                  <Globe size={40} />
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.3em] text-gold font-bold mb-1">Тип Элемента</div>
+                  <h2 className="font-gothic text-3xl tracking-widest text-sepia uppercase">{selectedType.name}</h2>
+                </div>
+                <div className="w-full h-px bg-sepia/10" />
+                <div className="space-y-4 text-left w-full">
+                  <div>
+                    <h4 className="text-[10px] uppercase font-bold tracking-widest text-gold mb-1">Описание</h4>
+                    <p className="text-sm text-sepia italic">{selectedType.desc}</p>
+                  </div>
+                  <div className="bg-sepia/5 p-4 rounded border border-sepia/10">
+                    <h4 className="text-[10px] uppercase font-bold tracking-widest text-gold mb-2 flex items-center gap-2"><Info size={12} /> Влияние на Игру</h4>
+                    <p className="text-xs text-sepia/80 leading-relaxed">{selectedType.influence}</p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Essence Modal */}
+      <AnimatePresence>
+        {selectedEssence && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-ink/80 backdrop-blur-md"
+            onClick={() => setSelectedEssence(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="parchment-card max-w-md w-full p-8 relative"
+              onClick={e => e.stopPropagation()}
+            >
+              <button onClick={() => setSelectedEssence(null)} className="absolute top-4 right-4 text-sepia/40 hover:text-sepia"><X size={20} /></button>
+              <div className="flex flex-col items-center text-center gap-6">
+                <div className="w-20 h-20 rounded-full bg-gold/10 flex items-center justify-center text-gold border border-gold/20 shadow-xl">
+                  <Zap size={40} />
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.3em] text-gold font-bold mb-1">Сущность (Эссенция)</div>
+                  <h2 className="font-gothic text-3xl tracking-widest text-sepia uppercase">{translateEssence(selectedEssence.name)}</h2>
+                </div>
+                <div className="w-full h-px bg-sepia/10" />
+                <div className="space-y-4 text-left w-full">
+                  <div>
+                    <h4 className="text-[10px] uppercase font-bold tracking-widest text-gold mb-1">Описание</h4>
+                    <p className="text-sm text-sepia italic">{selectedEssence.desc}</p>
+                  </div>
+                  <div className="bg-sepia/5 p-4 rounded border border-sepia/10">
+                    <h4 className="text-[10px] uppercase font-bold tracking-widest text-gold mb-2 flex items-center gap-2"><Info size={12} /> Влияние на Синтез</h4>
+                    <p className="text-xs text-sepia/80 leading-relaxed">{selectedEssence.influence}</p>
+                  </div>
+                </div>
               </div>
             </motion.div>
           </motion.div>

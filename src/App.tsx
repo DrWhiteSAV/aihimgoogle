@@ -82,6 +82,78 @@ export default function App() {
   const [phaseTimer, setPhaseTimer] = useState(300);
   const [regenTimer, setRegenTimer] = useState(60);
   
+  // Stage Notification State
+  const [stageNotification, setStageNotification] = useState<{
+    type: 'rank' | 'layer' | 'level';
+    title: string;
+    value: string | number;
+    icon: string | React.ReactNode;
+    desc: string;
+  } | null>(null);
+
+  const [prevRankName, setPrevRankName] = useState<string>(() => {
+    const saved = localStorage.getItem('aihim_prev_rank');
+    return saved || 'Закалка Тела';
+  });
+
+  const [prevLayerLevel, setPrevLayerLevel] = useState<number>(() => {
+    const saved = localStorage.getItem('aihim_prev_layer');
+    return saved ? parseInt(saved) : 1;
+  });
+
+  const [prevAlchemyLevel, setPrevAlchemyLevel] = useState<number>(() => {
+    const saved = localStorage.getItem('aihim_prev_level');
+    return saved ? parseInt(saved) : 1;
+  });
+
+  // Monitor Progress for Notifications
+  useEffect(() => {
+    const { currentRank, level } = calculateRank(discoveredElements.length);
+    const maxReality = Math.max(1, ...discoveredElements.map(e => (e && e.realityLevel) || 1));
+
+    // Rank Notification
+    if (currentRank.name !== prevRankName) {
+      setStageNotification({
+        type: 'rank',
+        title: 'НОВЫЙ РАНГ ДОСТИГНУТ',
+        value: currentRank.name,
+        icon: currentRank.icon,
+        desc: currentRank.desc
+      });
+      setPrevRankName(currentRank.name);
+      localStorage.setItem('aihim_prev_rank', currentRank.name);
+    }
+
+    // Level Notification
+    if (level > prevAlchemyLevel) {
+      setStageNotification({
+        type: 'level',
+        title: 'НОВЫЙ УРОВЕНЬ АЛХИМИИ',
+        value: level,
+        icon: <Sparkles className="text-gold" size={32} />,
+        desc: `Ваше мастерство растет. Теперь вы можете манипулировать более сложными структурами.`
+      });
+      setPrevAlchemyLevel(level);
+      localStorage.setItem('aihim_prev_level', level.toString());
+    }
+
+    // Layer Notification
+    if (maxReality > prevLayerLevel) {
+      const layer = REALITY_LAYERS.find(l => l.level === maxReality);
+      if (layer) {
+        setStageNotification({
+          type: 'layer',
+          title: 'НОВЫЙ СЛОЙ РЕАЛЬНОСТИ',
+          value: layer.name,
+          icon: <FlaskConical className="text-gold" size={32} />,
+          desc: layer.desc
+        });
+        setPrevLayerLevel(maxReality);
+        localStorage.setItem('aihim_prev_layer', maxReality.toString());
+      }
+    }
+  }, [discoveredElements.length, prevRankName, prevAlchemyLevel, prevLayerLevel]);
+
   const handleTrySetSlot = (element: AlchemyElement | null, slot: 'A' | 'B') => {
     if (!element) {
       if (slot === 'A') setSlotA(null);
@@ -852,6 +924,48 @@ export default function App() {
                   В КУЗНЮ
                 </button>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* Stage Notification Modal */}
+        {stageNotification && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[5000] flex items-center justify-center p-4 bg-ink/80 backdrop-blur-xl"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0, y: 50 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              className="relative w-full max-w-md parchment-card p-10 shadow-[0_0_50px_rgba(201,163,67,0.4)] gold-glow border-gold/60 text-center"
+            >
+              <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-gold flex items-center justify-center text-5xl shadow-2xl border-4 border-parchment">
+                {stageNotification.icon}
+              </div>
+              
+              <div className="mt-8 flex flex-col gap-6">
+                <div className="flex flex-col gap-1">
+                  <div className="text-[10px] uppercase font-bold text-gold tracking-[0.3em]">{stageNotification.title}</div>
+                  <h2 className="font-gothic text-4xl text-sepia tracking-widest uppercase">{stageNotification.value}</h2>
+                </div>
+                
+                <div className="h-px w-full bg-gold/20" />
+                
+                <p className="text-sm font-serif italic text-sepia/80 leading-relaxed">
+                  {stageNotification.desc}
+                </p>
+                
+                <button
+                  onClick={() => setStageNotification(null)}
+                  className="w-full bg-gold text-white py-4 rounded-xl font-gothic tracking-widest shadow-lg hover:bg-gold-light transition-all active:scale-95"
+                >
+                  ПРОДОЛЖИТЬ ПУТЬ
+                </button>
+              </div>
+              
+              <MagicParticles />
             </motion.div>
           </motion.div>
         )}
