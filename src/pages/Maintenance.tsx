@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { AlchemyElement, Rarity } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Hammer, Thermometer, Zap, Shield, ArrowUp, ArrowDown, Sparkles, AlertCircle, Search } from 'lucide-react';
+import { Hammer, Thermometer, Zap, Shield, ArrowUp, ArrowDown, Sparkles, AlertCircle, Search, Heart } from 'lucide-react';
 import { RARITY_COLORS, STABILITY_TAP_COST, translateEssence, calculateRank } from '../constants';
 import { ElementCard } from '../components/ElementCard';
 import { RefreshCw } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 interface MaintenanceProps {
   elements: AlchemyElement[];
@@ -14,6 +15,7 @@ interface MaintenanceProps {
   aihim: number;
   setAihim: React.Dispatch<React.SetStateAction<number>>;
   onOpenShop: () => void;
+  onToggleFavorite: (id: string) => void;
   regenTimer: number;
 }
 
@@ -25,6 +27,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
   aihim, 
   setAihim,
   onOpenShop,
+  onToggleFavorite,
   regenTimer
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'stability' | 'temperature'>('stability');
@@ -33,6 +36,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
   const [tapAmount, setTapAmount] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'low-stability' | 'extreme-temp'>('all');
+  const [favoriteFilter, setFavoriteFilter] = useState<boolean>(false);
 
   React.useEffect(() => {
     if (initialElementId) {
@@ -56,6 +60,9 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
 
       if (!matchesSearch) return false;
 
+      const matchesFavorite = !favoriteFilter || el.isFavorite;
+      if (!matchesFavorite) return false;
+
       if (filter === 'low-stability') {
         return (el.stability ?? 100) < 80;
       }
@@ -66,8 +73,12 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
       }
 
       return true;
+    }).sort((a, b) => {
+      if (a.isFavorite && !b.isFavorite) return -1;
+      if (!a.isFavorite && b.isFavorite) return 1;
+      return 0;
     });
-  }, [elements, searchQuery, filter]);
+  }, [elements, searchQuery, filter, favoriteFilter]);
 
   const selectedElement = useMemo(() => 
     elements.find(e => e && e.id === selectedId),
@@ -81,19 +92,18 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
 
     if (type === 'stability') {
       const cost = STABILITY_TAP_COST[selectedElement.rarity] || 1;
-      setTapCount(prev => {
-        const next = prev + tapAmount;
-        if (next >= cost) {
-          const stabilityGain = Math.floor(next / cost);
-          setElements(current => current.map(el => 
-            (el && el.id === selectedElement.id) 
-              ? { ...el, stability: Math.min(100, (el.stability ?? 100) + stabilityGain) }
-              : el
-          ));
-          return next % cost;
-        }
-        return next;
-      });
+      const totalProgress = tapCount + tapAmount;
+      const stabilityGain = Math.floor(totalProgress / cost);
+      const remainingProgress = totalProgress % cost;
+
+      if (stabilityGain > 0) {
+        setElements(current => current.map(el => 
+          (el && el.id === selectedElement.id) 
+            ? { ...el, stability: Math.min(100, (el.stability ?? 100) + stabilityGain) }
+            : el
+        ));
+      }
+      setTapCount(remainingProgress);
     } else if (type === 'heat') {
       setElements(current => current.map(el => 
         (el && el.id === selectedElement.id) 
@@ -139,6 +149,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
               <div>
                 <div className="text-[10px] uppercase font-bold text-gold tracking-widest">Ранг: {currentRank.name}</div>
                 <div className="text-lg font-gothic tracking-widest">Уровень: {level}</div>
+                <div className="text-[8px] text-sepia/60 uppercase tracking-widest mt-0.5">Чем выше уровень, тем меньше тапов требуется в кузне, и больше энергии добавляется в минуту</div>
               </div>
             </div>
             <div className="flex flex-col items-end gap-1">
@@ -166,7 +177,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
               <div className="flex items-center gap-2 mt-1 text-[10px] text-sepia/60 font-bold uppercase tracking-widest">
                 <div className="flex items-center gap-1">
                   <RefreshCw size={10} className="animate-spin-slow" />
-                  +100 через {regenTimer}с
+                  +{100 * level} через {regenTimer}с
                 </div>
               </div>
             </div>
@@ -232,6 +243,15 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
                 >
                   Критическая темп.
                 </button>
+                <button
+                  onClick={() => setFavoriteFilter(!favoriteFilter)}
+                  className={`px-2 py-1 rounded text-[8px] uppercase font-bold tracking-tighter transition-all border flex items-center gap-1 ${
+                    favoriteFilter ? 'bg-red-500 text-white border-red-500' : 'text-sepia/60 border-sepia/10 hover:border-sepia/30'
+                  }`}
+                >
+                  <Heart size={8} className={favoriteFilter ? "fill-white" : ""} />
+                  Эфирные Узы
+                </button>
               </div>
             </div>
           </div>
@@ -244,6 +264,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
                     key={el.id} 
                     element={el} 
                     isSelected={selectedId === el.id}
+                    onToggleFavorite={onToggleFavorite}
                     onClick={() => {
                       setSelectedId(el.id);
                       setTapCount(0);
@@ -264,7 +285,7 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
           <div className="w-full max-w-2xl h-px bg-gradient-to-r from-transparent via-sepia/20 to-transparent opacity-50" />
           
           <div 
-            className="relative flex flex-col items-center justify-center gap-4 py-8 md:py-12 px-4 md:px-8 w-full max-w-5xl !overflow-visible bg-no-repeat bg-center bg-cover border-4 border-gold/20 rounded-[2rem] md:rounded-[3rem] aspect-[4/5] md:aspect-[16/10] transition-all duration-500 mx-auto shadow-2xl"
+            className="relative flex flex-col items-center justify-start gap-4 pt-16 md:pt-24 pb-8 md:pb-12 px-4 md:px-8 w-full max-w-5xl !overflow-visible bg-no-repeat bg-center bg-cover border-4 border-gold/20 rounded-[2rem] md:rounded-[3rem] aspect-[4/5] md:aspect-[16/10] transition-all duration-500 mx-auto shadow-2xl"
             style={{ 
               backgroundImage: "url('https://i.ibb.co/q3WTWZVr/kuznyaaihim.png')",
             }}
@@ -277,6 +298,26 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
             </div>
 
             <div className="relative z-10 flex flex-col items-center gap-4 md:gap-8 w-full max-w-4xl">
+              {/* Mode Switcher */}
+              <div className="flex bg-parchment/40 backdrop-blur-md p-1 rounded-full border border-gold/40 mb-4">
+                <button
+                  onClick={() => setActiveSubTab('stability')}
+                  className={`px-6 py-2 rounded-full text-xs uppercase font-bold tracking-widest transition-all ${
+                    activeSubTab === 'stability' ? 'bg-gold text-white shadow-lg' : 'text-ink/60 hover:text-ink'
+                  }`}
+                >
+                  Стабильность
+                </button>
+                <button
+                  onClick={() => setActiveSubTab('temperature')}
+                  className={`px-6 py-2 rounded-full text-xs uppercase font-bold tracking-widest transition-all ${
+                    activeSubTab === 'temperature' ? 'bg-gold text-white shadow-lg' : 'text-ink/60 hover:text-ink'
+                  }`}
+                >
+                  Температура
+                </button>
+              </div>
+
               <AnimatePresence mode="wait">
                 {selectedElement ? (
                   <motion.div
@@ -286,26 +327,6 @@ export const Maintenance: React.FC<MaintenanceProps> = ({
                     exit={{ opacity: 0, scale: 0.9 }}
                     className="flex flex-col items-center w-full max-w-2xl"
                   >
-                    {/* Mode Switcher */}
-                    <div className="flex bg-parchment/40 backdrop-blur-md p-1 rounded-full border border-gold/40 mb-8">
-                      <button
-                        onClick={() => setActiveSubTab('stability')}
-                        className={`px-6 py-2 rounded-full text-xs uppercase font-bold tracking-widest transition-all ${
-                          activeSubTab === 'stability' ? 'bg-gold text-white shadow-lg' : 'text-ink/60 hover:text-ink'
-                        }`}
-                      >
-                        Стабильность
-                      </button>
-                      <button
-                        onClick={() => setActiveSubTab('temperature')}
-                        className={`px-6 py-2 rounded-full text-xs uppercase font-bold tracking-widest transition-all ${
-                          activeSubTab === 'temperature' ? 'bg-gold text-white shadow-lg' : 'text-ink/60 hover:text-ink'
-                        }`}
-                      >
-                        Температура
-                      </button>
-                    </div>
-
                     <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 w-full">
                       <div className="relative">
                         <div className="absolute -inset-4 bg-gold/20 blur-2xl rounded-full animate-pulse" />

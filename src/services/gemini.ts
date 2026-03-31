@@ -122,6 +122,8 @@ export async function generateNewElement(
     return {
       element: {
         ...data.element,
+        temperature: Math.round(data.element.temperature || 0),
+        targetTemperature: Math.round(data.element.targetTemperature || 0),
         id: data.element.name.toLowerCase().replace(/\s+/g, '-'),
         parents: [elementA.id, elementB.id],
         discoveredAt: Date.now(),

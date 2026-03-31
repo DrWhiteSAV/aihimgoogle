@@ -602,9 +602,10 @@ export const calculateRank = (totalElements: number) => {
 };
 
 export const calculateUnlockedReality = (elements: AlchemyElement[]) => {
-  const totalElements = elements.length;
+  const validElements = elements.filter(e => e !== null);
+  const totalElements = validElements.length;
   const { currentRank } = calculateRank(totalElements);
-  const rarityCounts = elements.reduce((acc, el) => {
+  const rarityCounts = validElements.reduce((acc, el) => {
     acc[el.rarity] = (acc[el.rarity] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
@@ -627,9 +628,7 @@ export const calculateUnlockedReality = (elements: AlchemyElement[]) => {
     }
 
     // Check rank requirement
-    if (cond.rank && currentRank.name !== cond.rank) {
-      // If it's a specific rank, we might need to check if current rank is at least that rank
-      // For now, simple equality as per constants
+    if (cond.rank && RANKS.findIndex(r => r.name === currentRank.name) < RANKS.findIndex(r => r.name === cond.rank)) {
       return false;
     }
 
@@ -639,5 +638,8 @@ export const calculateUnlockedReality = (elements: AlchemyElement[]) => {
     return true;
   });
 
-  return Math.max(1, ...unlockedLayers.map(l => l.level));
+  const maxConditionLevel = Math.max(1, ...unlockedLayers.map(l => l.level));
+  const maxDiscoveredLevel = Math.max(1, ...validElements.map(e => e.realityLevel || 1));
+
+  return Math.max(maxConditionLevel, maxDiscoveredLevel);
 };

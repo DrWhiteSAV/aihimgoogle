@@ -37,6 +37,7 @@ export interface AlchemyElement {
   realityLevel: number; // 1-5 (Physical, Chemical, Biological, Abstract, Cosmic)
   lastDecayAt?: number; // timestamp
   lastTempDecayAt?: number; // timestamp
+  isFavorite?: boolean;
 }
 
 export interface CombinationResult {

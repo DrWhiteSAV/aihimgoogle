@@ -2,15 +2,11 @@ import React from 'react';
 import { AlchemyElement, Rarity } from '../types';
 import { RARITY_COLORS, translateEssence, STABILITY_DECAY_INTERVAL, TEMPERATURE_DECAY_INTERVAL, INITIAL_ELEMENTS } from '../constants';
 import { motion } from 'motion/react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Thermometer, Shield } from 'lucide-react';
+import { Thermometer, Shield, Heart } from 'lucide-react';
 
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '../lib/utils';
 
 interface ElementCardProps {
   element: AlchemyElement;
@@ -19,6 +15,7 @@ interface ElementCardProps {
   className?: string;
   compact?: boolean;
   isDraggable?: boolean;
+  onToggleFavorite?: (id: string) => void;
 }
 
 export const ElementCard: React.FC<ElementCardProps> = ({ 
@@ -27,7 +24,8 @@ export const ElementCard: React.FC<ElementCardProps> = ({
   isSelected, 
   className, 
   compact,
-  isDraggable
+  isDraggable,
+  onToggleFavorite
 }) => {
   const [timeLeft, setTimeLeft] = React.useState<number | null>(null);
 
@@ -61,6 +59,10 @@ export const ElementCard: React.FC<ElementCardProps> = ({
     return () => clearInterval(interval);
   }, [element?.id, element?.lastDecayAt, element?.lastTempDecayAt, element?.discoveredAt, element?.rarity, element?.stability, element?.temperature]);
 
+  const isDarkRarity = (rarity: Rarity) => {
+    return ['Изначальный', 'Трансцендентный', 'Запретный'].includes(rarity);
+  };
+
   if (!element) return null;
 
   const formatTime = (seconds: number) => {
@@ -88,6 +90,8 @@ export const ElementCard: React.FC<ElementCardProps> = ({
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const isDark = isDarkRarity(element.rarity || 'Обычный');
+
   return (
     <motion.div
       ref={setNodeRef}
@@ -111,48 +115,63 @@ export const ElementCard: React.FC<ElementCardProps> = ({
     >
       {compact && timeLeft !== null && (
         <div className="absolute top-0.5 left-0 right-0 flex flex-col items-center">
-          <div className="text-[12px] font-mono text-ink/60 font-bold leading-none" title="Время до распада">
+          <div className={cn(
+            "text-[12px] font-mono font-bold leading-none",
+            isDark ? "text-white/80" : "text-ink/60"
+          )} title="Время до распада">
             {formatTime(timeLeft)}
           </div>
         </div>
       )}
 
-      <div className={cn(
-        "mb-1 flex items-center justify-center rounded-full border border-sepia/20 bg-white/30 shadow-inner", 
-        compact ? "w-8 h-8 text-lg" : "w-16 h-16 text-4xl"
-      )}>
-        <span className="drop-shadow-[0_0_1px_rgba(0,0,0,0.5)]">{element.icon || '❓'}</span>
-      </div>
-      
-      <h3 className={cn(
-        "font-gothic tracking-widest uppercase leading-tight px-1", 
-        compact ? "text-[7px]" : "text-[9px] md:text-xs"
-      )}>
-        {element.name || 'Неизвестно'}
-      </h3>
-
-      {compact && (
-        <div className="absolute bottom-0.5 left-0 right-0 flex flex-col items-center">
-          <div className="w-8 h-1 bg-sepia/20 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-gold" 
-              style={{ width: `${element.stability ?? 100}%` }}
-            />
-          </div>
+      {!compact && timeLeft !== null && (
+        <div className={cn(
+          "absolute top-1 left-0 right-0 text-[8px] font-mono font-bold uppercase tracking-widest text-center",
+          isDark ? "text-white/90" : "text-ink/60"
+        )}>
+          {formatTime(timeLeft)}
         </div>
       )}
-      
-      {!compact && (
-        <>
-          <div className="mt-2 text-[8px] uppercase tracking-[0.2em] font-bold opacity-40">
+
+      <div className="flex flex-col items-center justify-center flex-1 w-full py-4">
+        <div className={cn(
+          "mb-1 flex items-center justify-center rounded-full border border-sepia/20 bg-white/30 shadow-inner", 
+          compact ? "w-8 h-8 text-lg" : "w-14 h-14 text-3xl"
+        )}>
+          <span className="drop-shadow-[0_0_1px_rgba(0,0,0,0.5)]">{element.icon || '❓'}</span>
+        </div>
+        
+        <h3 className={cn(
+          "font-gothic tracking-widest leading-[0.9] px-1", 
+          compact ? "text-[6px]" : "text-[7px] md:text-[8px]",
+          isDark && "text-white/90"
+        )}>
+          {element.name || 'Неизвестно'}
+        </h3>
+
+        {!compact && (
+          <div className={cn(
+            "mt-1 text-[4px] uppercase tracking-[0.2em] font-bold opacity-40",
+            isDark && "text-white/60"
+          )}>
             {element.rarity || 'Обычный'}
           </div>
-          
+        )}
+      </div>
+      
+      {!compact && (
+        <div className="absolute bottom-1 left-1 right-1">
           {/* Counters */}
-          <div className="flex justify-between w-full mt-2 px-1 text-[12px] font-mono text-ink font-black">
+          <div className={cn(
+            "flex justify-between w-full px-1 text-[8px] font-mono font-black",
+            isDark ? "text-white/90" : "text-ink"
+          )}>
             <div className="flex flex-col items-start gap-0.5">
-              <span className={cn((element.temperature ?? 0) > 100 ? "text-red-600" : (element.temperature ?? 0) < 0 ? "text-blue-600" : "")}>
-                {element.temperature ?? 0}°C
+              <span className={cn(
+                (element.temperature ?? 0) > 100 ? (isDark ? "text-red-400" : "text-red-600") : 
+                (element.temperature ?? 0) < 0 ? (isDark ? "text-blue-400" : "text-blue-600") : ""
+              )}>
+                {Math.round(element.temperature ?? 0)}°C
               </span>
             </div>
             <div className="flex flex-col items-end gap-0.5">
@@ -162,14 +181,8 @@ export const ElementCard: React.FC<ElementCardProps> = ({
             </div>
           </div>
 
-          {timeLeft !== null && (
-            <div className="absolute top-1 left-1/2 -translate-x-1/2 text-[12px] font-mono text-ink/60 font-bold uppercase tracking-widest">
-              Цикл: {formatTime(timeLeft)}
-            </div>
-          )}
-
           {/* Stability Bar */}
-          <div className="mt-1 w-full h-1 bg-sepia/10 rounded-full overflow-hidden relative">
+          <div className="mt-0.5 w-full h-1 bg-sepia/10 rounded-full overflow-hidden relative">
             <motion.div 
               initial={{ width: 0 }}
               animate={{ width: `${element.stability ?? 100}%` }}
@@ -179,15 +192,27 @@ export const ElementCard: React.FC<ElementCardProps> = ({
               )}
             />
           </div>
-        </>
+        </div>
       )}
 
-      {/* Reality Level Indicator */}
-      <div className="absolute top-1 right-1 flex gap-0.5">
-        {Array.from({ length: element.realityLevel ?? 1 }).map((_, i) => (
-          <div key={i} className="w-1 h-1 rounded-full bg-gold/60" />
-        ))}
-      </div>
+      {/* Favorite Toggle */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleFavorite?.(element.id);
+        }}
+        className="absolute top-1 right-1 z-30 p-1 rounded-full hover:bg-white/20 transition-colors"
+      >
+        <Heart 
+          size={compact ? 10 : 14} 
+          className={cn(
+            "transition-all duration-300",
+            element.isFavorite 
+              ? "fill-red-500 text-red-500 drop-shadow-[0_0_2px_rgba(239,68,68,0.5)]" 
+              : isDark ? "text-white/40" : "text-ink/20"
+          )} 
+        />
+      </button>
 
       {/* Law Badges */}
       <div className="absolute top-1 left-1 flex flex-col gap-1">

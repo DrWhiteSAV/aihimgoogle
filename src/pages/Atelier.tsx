@@ -4,7 +4,8 @@ import { ElementCard } from '../components/ElementCard';
 import { ElementDetailsModal } from '../components/ElementDetailsModal';
 import { VortexAnimation, MagicParticles, RareFlash } from '../components/Animations';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, Sparkles, Search, X, Info, Zap, Shield, Eye, Globe, Sun, Moon, AlertCircle, Thermometer, Contrast, Leaf, Hourglass } from 'lucide-react';
+import { Plus, Sparkles, Search, X, Info, Zap, Shield, Eye, Globe, Sun, Moon, AlertCircle, Thermometer, Contrast, Leaf, Hourglass, Heart } from 'lucide-react';
+import { cn } from '../lib/utils';
 import { REALITY_LAYERS, HIDDEN_LAWS, calculateRank, translateEssence, calculateUnlockedReality } from '../constants';
 import { 
   DndContext, 
@@ -37,6 +38,7 @@ interface AtelierProps {
   alchemyMessage: string | null;
   onClearMessage: () => void;
   onSelectElement: (element: AlchemyElement) => void;
+  onToggleFavorite: (id: string) => void;
   slotA: AlchemyElement | null;
   setSlotA: React.Dispatch<React.SetStateAction<AlchemyElement | null>>;
   slotB: AlchemyElement | null;
@@ -140,7 +142,7 @@ const Slot = ({ id, element, onRemove, label, isCombining }: {
         } ${!element ? 'border-dashed opacity-60' : 'opacity-100 cursor-pointer hover:border-ink/60 hover:bg-parchment/60'}`}
       >
         {element ? (
-          <ElementCard element={element} compact className="w-full h-full border-none shadow-none pointer-events-none scale-90" />
+          <ElementCard element={element} className="w-full h-full border-none shadow-none pointer-events-none scale-90" />
         ) : (
           <div className="text-gold/40 flex flex-col items-center gap-2">
             <Plus size={32} className="animate-pulse" />
@@ -174,6 +176,7 @@ export const Atelier: React.FC<AtelierProps> = ({
   alchemyMessage,
   onClearMessage,
   onSelectElement,
+  onToggleFavorite,
   slotA,
   setSlotA,
   slotB,
@@ -182,6 +185,7 @@ export const Atelier: React.FC<AtelierProps> = ({
   onOpenShop
 }) => {
   const [search, setSearch] = useState('');
+  const [favoriteFilter, setFavoriteFilter] = useState<boolean>(false);
 
   React.useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -212,8 +216,17 @@ export const Atelier: React.FC<AtelierProps> = ({
 
   const filteredElements = useMemo(() => {
     if (!elements) return [];
-    return elements.filter(e => e && e.name && e.name.toLowerCase().includes(search.toLowerCase()));
-  }, [elements, search]);
+    return elements.filter(e => {
+      if (!e || !e.name) return false;
+      const matchesSearch = e.name.toLowerCase().includes(search.toLowerCase());
+      const matchesFavorite = !favoriteFilter || e.isFavorite;
+      return matchesSearch && matchesFavorite;
+    }).sort((a, b) => {
+      if (a.isFavorite && !b.isFavorite) return -1;
+      if (!a.isFavorite && b.isFavorite) return 1;
+      return 0;
+    });
+  }, [elements, search, favoriteFilter]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -300,6 +313,7 @@ export const Atelier: React.FC<AtelierProps> = ({
               <div>
                 <div className="text-[10px] uppercase font-bold text-gold tracking-widest">Ранг: {currentRank.name}</div>
                 <div className="text-lg font-gothic tracking-widest">Уровень: {level}</div>
+                <div className="text-[8px] text-sepia/60 uppercase tracking-widest mt-0.5">Чем выше уровень, тем меньше тапов требуется в кузне, и больше энергии добавляется в минуту</div>
               </div>
             </div>
             <div className="flex flex-col items-end gap-1">
@@ -344,23 +358,38 @@ export const Atelier: React.FC<AtelierProps> = ({
               </h2>
             </div>
             
-            <div className="relative w-full md:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-sepia/40" size={16} />
-              <input
-                type="text"
-                placeholder="Поиск в архивах..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-transparent border-b border-sepia/20 focus:border-gold outline-none text-sm font-serif italic"
-              />
-              {search && (
-                <button 
-                  onClick={() => setSearch('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-sepia/40 hover:text-sepia"
-                >
-                  <X size={14} />
-                </button>
-              )}
+            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+              <div className="relative w-full md:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-sepia/40" size={16} />
+                <input
+                  type="text"
+                  placeholder="Поиск в архивах..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-transparent border-b border-sepia/20 focus:border-gold outline-none text-sm font-serif italic"
+                />
+                {search && (
+                  <button 
+                    onClick={() => setSearch('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-sepia/40 hover:text-sepia"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              <button 
+                onClick={() => setFavoriteFilter(!favoriteFilter)}
+                className={cn(
+                  "px-4 py-2 text-xs rounded-full border transition-all duration-300 flex items-center gap-2 shadow-sm",
+                  favoriteFilter 
+                    ? "bg-red-500/10 border-red-500/40 text-red-600" 
+                    : "bg-parchment border-sepia/20 text-sepia/60 hover:border-gold"
+                )}
+              >
+                <Heart size={14} className={favoriteFilter ? "fill-red-500" : ""} />
+                Эфирные Узы
+              </button>
             </div>
           </div>
 
@@ -377,6 +406,7 @@ export const Atelier: React.FC<AtelierProps> = ({
                     isDraggable
                     isSelected={slotA?.id === element.id || slotB?.id === element.id}
                     onClick={() => onSelectElement(element)}
+                    onToggleFavorite={onToggleFavorite}
                   />
                 ))}
               </div>
@@ -500,7 +530,6 @@ export const Atelier: React.FC<AtelierProps> = ({
             <div className="relative">
               <ElementCard 
                 element={activeElement} 
-                compact 
                 className="w-32 h-32 shadow-2xl gold-glow border-gold/50 rotate-3" 
               />
               {(activeElement.stability ?? 100) < 80 ? (

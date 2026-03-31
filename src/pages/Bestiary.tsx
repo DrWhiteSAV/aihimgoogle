@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { AlchemyElement, Rarity, ElementType, Essence } from '../types';
 import { ElementCard } from '../components/ElementCard';
 import { ElementDetailsModal } from '../components/ElementDetailsModal';
-import { Search, Trash2, X, Filter, BarChart3, Calendar, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Trash2, X, Filter, BarChart3, Calendar, Sparkles, ChevronLeft, ChevronRight, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { INITIAL_ELEMENTS, translateEssence } from '../constants';
 import { clsx, type ClassValue } from 'clsx';
@@ -16,31 +16,40 @@ interface BestiaryProps {
   elements: AlchemyElement[];
   onDelete: (id: string) => void;
   onSelectElement: (element: AlchemyElement) => void;
+  onToggleFavorite: (id: string) => void;
 }
 
-export const Bestiary: React.FC<BestiaryProps> = ({ elements, onDelete, onSelectElement }) => {
+export const Bestiary: React.FC<BestiaryProps> = ({ elements, onDelete, onSelectElement, onToggleFavorite }) => {
   const [search, setSearch] = useState('');
   const [rarityFilter, setRarityFilter] = useState<Rarity | 'All'>('All');
   const [typeFilter, setTypeFilter] = useState<ElementType | 'All'>('All');
   const [essenceFilter, setEssenceFilter] = useState<Essence | 'All'>('All');
+  const [favoriteFilter, setFavoriteFilter] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(100);
 
   const [elementToDelete, setElementToDelete] = useState<string | null>(null);
 
-  const filteredElements = elements.filter(e => {
-    if (!e) return false;
-    const matchesSearch = e.name.toLowerCase().includes(search.toLowerCase());
-    const matchesRarity = rarityFilter === 'All' || e.rarity === rarityFilter;
-    const matchesType = typeFilter === 'All' || e.type === typeFilter;
-    const matchesEssence = essenceFilter === 'All' || (e.essences && e.essences.includes(essenceFilter as Essence));
-    return matchesSearch && matchesRarity && matchesType && matchesEssence;
-  });
+  const filteredElements = useMemo(() => {
+    return elements.filter(e => {
+      if (!e) return false;
+      const matchesSearch = e.name.toLowerCase().includes(search.toLowerCase());
+      const matchesRarity = rarityFilter === 'All' || e.rarity === rarityFilter;
+      const matchesType = typeFilter === 'All' || e.type === typeFilter;
+      const matchesEssence = essenceFilter === 'All' || (e.essences && e.essences.includes(essenceFilter as Essence));
+      const matchesFavorite = !favoriteFilter || e.isFavorite;
+      return matchesSearch && matchesRarity && matchesType && matchesEssence && matchesFavorite;
+    }).sort((a, b) => {
+      if (a.isFavorite && !b.isFavorite) return -1;
+      if (!a.isFavorite && b.isFavorite) return 1;
+      return b.discoveredAt - a.discoveredAt;
+    });
+  }, [elements, search, rarityFilter, typeFilter, essenceFilter, favoriteFilter]);
 
   // Reset page when filters change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [search, rarityFilter, typeFilter, essenceFilter, itemsPerPage]);
+  }, [search, rarityFilter, typeFilter, essenceFilter, favoriteFilter, itemsPerPage]);
 
   const totalPages = Math.ceil(filteredElements.length / itemsPerPage);
   const paginatedElements = filteredElements.slice(
@@ -125,6 +134,22 @@ export const Bestiary: React.FC<BestiaryProps> = ({ elements, onDelete, onSelect
           
           <div className="flex flex-wrap gap-4 w-full lg:w-auto justify-center lg:justify-end">
             <div className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-widest text-sepia/40 font-bold ml-1">Узы</span>
+              <button 
+                onClick={() => setFavoriteFilter(!favoriteFilter)}
+                className={cn(
+                  "px-3 py-2 text-sm rounded border transition-all duration-300 flex items-center gap-2",
+                  favoriteFilter 
+                    ? "bg-red-500/10 border-red-500/40 text-red-600" 
+                    : "bg-parchment border-sepia/20 text-sepia/60 hover:border-gold"
+                )}
+              >
+                <Heart size={14} className={favoriteFilter ? "fill-red-500" : ""} />
+                Эфирные Узы
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-1">
               <span className="text-[10px] uppercase tracking-widest text-sepia/40 font-bold ml-1">Показывать</span>
               <select 
                 value={itemsPerPage}
@@ -201,6 +226,7 @@ export const Bestiary: React.FC<BestiaryProps> = ({ elements, onDelete, onSelect
             <ElementCard 
               element={element} 
               onClick={() => onSelectElement(element)}
+              onToggleFavorite={onToggleFavorite}
               className="h-full"
             />
             {/* New Badge */}

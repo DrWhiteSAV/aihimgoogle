@@ -3,12 +3,7 @@ import { AlchemyElement } from '../types';
 import { translateEssence, RARITY_COLORS, STABILITY_DECAY_INTERVAL, TEMPERATURE_DECAY_INTERVAL } from '../constants';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Sparkles, Hammer, Thermometer, Shield } from 'lucide-react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '../lib/utils';
 
 interface ElementDetailsModalProps {
   element: AlchemyElement | null;
@@ -150,8 +145,8 @@ export const ElementDetailsModal: React.FC<ElementDetailsModalProps> = ({ elemen
                 <div className="flex flex-col items-center p-2 bg-sepia/5 rounded border border-sepia/10">
                   <span>Температура</span>
                   <div className="flex flex-col items-center">
-                    <span className="font-bold text-sepia text-[10px] mt-0.5">{element.temperature ?? '???'}°C</span>
-                    <span className="text-[14px] text-sepia/40 uppercase tracking-tighter">Норма: {element.targetTemperature ?? 0}°C</span>
+                    <span className="font-bold text-sepia text-[10px] mt-0.5">{Math.round(element.temperature ?? 0)}°C</span>
+                    <span className="text-[14px] text-sepia/40 uppercase tracking-tighter">Норма: {Math.round(element.targetTemperature ?? 0)}°C</span>
                   </div>
                 </div>
                 <div className="flex flex-col items-center p-2 bg-sepia/5 rounded border border-sepia/10">

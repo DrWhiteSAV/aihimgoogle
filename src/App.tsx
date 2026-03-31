@@ -154,6 +154,24 @@ export default function App() {
     }
   }, [discoveredElements.length, prevRankName, prevAlchemyLevel, prevLayerLevel]);
 
+  const toggleFavorite = (elementId: string) => {
+    setDiscoveredElements(current => {
+      const updated = current.map(e => 
+        e.id === elementId ? { ...e, isFavorite: !e.isFavorite } : e
+      );
+      localStorage.setItem('aihim_elements', JSON.stringify(updated));
+      return updated;
+    });
+    
+    // Update slots if they contain the element
+    if (slotA?.id === elementId) {
+      setSlotA(prev => prev ? { ...prev, isFavorite: !prev.isFavorite } : null);
+    }
+    if (slotB?.id === elementId) {
+      setSlotB(prev => prev ? { ...prev, isFavorite: !prev.isFavorite } : null);
+    }
+  };
+
   const handleTrySetSlot = (element: AlchemyElement | null, slot: 'A' | 'B') => {
     if (!element) {
       if (slot === 'A') setSlotA(null);
@@ -265,14 +283,15 @@ export default function App() {
     const interval = setInterval(() => {
       setRegenTimer(prev => {
         if (prev <= 1) {
-          setAihim(a => a + 100);
+          const { level } = calculateRank(discoveredElements.length);
+          setAihim(a => a + (100 * level));
           return 60;
         }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [discoveredElements.length]);
 
   useEffect(() => {
     localStorage.setItem('aihim_elements', JSON.stringify(discoveredElements));
@@ -296,6 +315,12 @@ export default function App() {
 
     if (tempDiffA > 200 || tempDiffB > 200) {
       setAlchemyMessage("Температура одного из элементов слишком низка для трансмутации! Разница с нормой превышает 200°C.");
+      return;
+    }
+
+    // Stability Check: Minimum 80% required
+    if ((elementA.stability ?? 100) < 80 || (elementB.stability ?? 100) < 80) {
+      setAlchemyMessage("Один из элементов слишком нестабилен для трансмутации! Требуется минимум 80% стабильности.");
       return;
     }
 
@@ -511,6 +536,7 @@ export default function App() {
                   setIsCombining(false);
                 }}
                 onSelectElement={setSelectedElement}
+                onToggleFavorite={toggleFavorite}
                 slotA={slotA}
                 setSlotA={(el) => el === null ? setSlotA(null) : handleTrySetSlot(el as AlchemyElement, 'A')}
                 slotB={slotB}
@@ -537,6 +563,7 @@ export default function App() {
                 elements={discoveredElements} 
                 onDelete={deleteElement}
                 onSelectElement={setSelectedElement}
+                onToggleFavorite={toggleFavorite}
               />
             </motion.div>
           )}
@@ -557,6 +584,7 @@ export default function App() {
                 aihim={aihim}
                 setAihim={setAihim}
                 onOpenShop={() => setIsShopOpen(true)}
+                onToggleFavorite={toggleFavorite}
                 regenTimer={regenTimer}
               />
             </motion.div>
@@ -684,7 +712,7 @@ export default function App() {
                         }}
                         className="absolute"
                       >
-                        {slotA && <ElementCard element={slotA} compact className="w-40 h-40 gold-glow border-gold/50" />}
+                        {slotA && <ElementCard element={slotA} className="w-40 h-40 gold-glow border-gold/50" />}
                       </motion.div>
                       
                       <motion.div
@@ -703,7 +731,7 @@ export default function App() {
                         }}
                         className="absolute"
                       >
-                        {slotB && <ElementCard element={slotB} compact className="w-40 h-40 gold-glow border-gold/50" />}
+                        {slotB && <ElementCard element={slotB} className="w-40 h-40 gold-glow border-gold/50" />}
                       </motion.div>
                     </div>
                   ) : (
@@ -820,12 +848,12 @@ export default function App() {
           }
           
           if (!slotA) {
-            setSlotA(element);
+            handleTrySetSlot(element, 'A');
           } else if (!slotB && slotA && slotA.id !== element.id) {
-            setSlotB(element);
+            handleTrySetSlot(element, 'B');
           } else {
             // If both full or same as A, replace A
-            setSlotA(element);
+            handleTrySetSlot(element, 'A');
           }
           setSelectedElement(null);
         }}
@@ -998,6 +1026,14 @@ export default function App() {
                 </div>
                 <h2 className="font-gothic text-3xl text-gold mb-2">МАГАЗИН ЭНЕРГИИ</h2>
                 <p className="font-serif italic text-sepia/60">AiHim — топливо для ваших великих свершений</p>
+                {(() => {
+                  const { level } = calculateRank(discoveredElements.length);
+                  return (
+                    <p className="text-[10px] text-gold mt-2 uppercase tracking-widest font-bold">
+                      Ваш уровень ({level}) увеличивает объем пакетов в {level} раз!
+                    </p>
+                  );
+                })()}
               </div>
 
               <div className="space-y-4">
@@ -1006,26 +1042,30 @@ export default function App() {
                   { amount: 1000, price: 10 },
                   { amount: 10000, price: 100 },
                   { amount: 100000, price: 1000 },
-                ].map((pack) => (
-                  <button
-                    key={pack.amount}
-                    onClick={() => {
-                      setAihim(prev => prev + pack.amount);
-                      setAlchemyMessage(`Приобретено ${pack.amount} AiHim!`);
-                      setIsShopOpen(false);
-                    }}
-                    className="w-full p-4 border border-sepia/20 rounded-lg flex items-center justify-between hover:border-gold hover:bg-gold/5 transition-all group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Zap size={20} className="text-gold group-hover:scale-110 transition-transform" />
-                      <div className="text-left">
-                        <div className="font-bold text-sepia">{pack.amount.toLocaleString()} AiHim</div>
-                        <div className="text-[10px] text-sepia/40 uppercase tracking-widest">Энергетический пакет</div>
+                ].map((pack) => {
+                  const { level } = calculateRank(discoveredElements.length);
+                  const multipliedAmount = pack.amount * level;
+                  return (
+                    <button
+                      key={pack.amount}
+                      onClick={() => {
+                        setAihim(prev => prev + multipliedAmount);
+                        setAlchemyMessage(`Приобретено ${multipliedAmount.toLocaleString()} AiHim!`);
+                        setIsShopOpen(false);
+                      }}
+                      className="w-full p-4 border border-sepia/20 rounded-lg flex items-center justify-between hover:border-gold hover:bg-gold/5 transition-all group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Zap size={20} className="text-gold group-hover:scale-110 transition-transform" />
+                        <div className="text-left">
+                          <div className="font-bold text-sepia">{multipliedAmount.toLocaleString()} AiHim</div>
+                          <div className="text-[10px] text-sepia/40 uppercase tracking-widest">Энергетический пакет</div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="font-gothic text-xl text-gold">{pack.price} ₽</div>
-                  </button>
-                ))}
+                      <div className="font-gothic text-xl text-gold">{pack.price} ₽</div>
+                    </button>
+                  );
+                })}
               </div>
 
               <p className="mt-8 text-[9px] text-center text-sepia/40 uppercase tracking-tighter leading-relaxed">
