@@ -94,33 +94,37 @@ const UniverseStatus = ({
   return (
     <div className="flex flex-col gap-2 mb-4">
       <div className="w-full parchment-card p-2 md:p-3 bg-gold/5 border-ink/20 flex flex-col md:flex-row items-center justify-between gap-2 md:gap-4">
-        <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 md:gap-4">
-          <div className="flex items-center gap-2 md:gap-3">
-            <div className="p-1.5 md:p-2 bg-gold/20 rounded-full text-gold gold-glow">
-              <LayerIcon size={14} className="md:w-[18px] md:h-[18px]" />
+        <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 md:gap-6">
+          <div className="flex flex-col gap-2">
+            <div className="text-[7px] md:text-[8px] uppercase tracking-widest text-gold font-bold flex items-center gap-2">
+              <LayerIcon size={10} className="md:w-[12px] md:h-[12px]" />
+              Слой Реальности
             </div>
-            <div className="relative group">
-              <div className="text-[7px] md:text-[8px] uppercase tracking-widest text-gold font-bold">Слой Реальности</div>
-              <select 
-                value={selectedRealityLevel}
-                onChange={(e) => onSelectRealityLevel(parseInt(e.target.value))}
-                className="bg-transparent font-gothic text-xs md:text-sm tracking-widest outline-none cursor-pointer hover:text-gold transition-colors appearance-none pr-4"
-              >
-                {REALITY_LAYERS.filter(l => l.level <= maxReality).map(layer => (
-                  <option key={layer.level} value={layer.level} className="bg-parchment text-ink">
+            <div className="flex flex-wrap gap-2">
+              {REALITY_LAYERS.filter(l => l.level <= maxReality).map(layer => {
+                const Icon = LAYER_ICONS[layer.level] || Shield;
+                return (
+                  <button
+                    key={layer.level}
+                    onClick={() => onSelectRealityLevel(layer.level)}
+                    className={cn(
+                      "px-3 py-1 rounded-lg text-[9px] md:text-[10px] font-bold uppercase tracking-widest transition-all border flex items-center gap-2",
+                      selectedRealityLevel === layer.level
+                        ? "bg-gold text-white border-gold shadow-md gold-glow scale-105"
+                        : "bg-parchment/40 text-sepia border-gold/20 hover:border-gold/50 hover:bg-parchment/60"
+                    )}
+                  >
+                    <Icon size={10} />
                     {layer.name}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-gold/40">
-                <Plus size={10} className="rotate-45" />
-              </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <div className="h-6 md:h-8 w-px bg-gold/20 hidden md:block" />
+          <div className="h-10 md:h-12 w-px bg-gold/20 hidden md:block" />
 
-          <div className="flex items-center gap-2 md:gap-3">
+          <div className="hidden md:flex items-center gap-2 md:gap-3">
             <div className={`p-1 md:p-1.5 rounded-full ${worldPhase === 'day' ? 'bg-yellow-500/20 text-yellow-500' : 'bg-indigo-500/20 text-indigo-400'}`}>
               {worldPhase === 'day' ? <Sun size={14} className="md:w-[16px] md:h-[16px]" /> : <Moon size={14} className="md:w-[16px] md:h-[16px]" />}
             </div>
@@ -135,7 +139,7 @@ const UniverseStatus = ({
         </div>
 
         <div className="flex items-center gap-3 md:gap-6">
-          <div className="flex items-center gap-2 md:gap-3 bg-sepia/5 px-3 py-1.5 rounded-full border border-gold/20">
+          <div className="hidden md:flex items-center gap-2 md:gap-3 bg-sepia/5 px-3 py-1.5 rounded-full border border-gold/20">
             <img src="https://i.ibb.co/5g4dfh7f/aihim.png" alt="AIhim" className="w-4 h-4 md:w-5 md:h-5 object-contain" />
             <div className="flex flex-col">
               <span className="text-[7px] md:text-[8px] uppercase font-bold text-sepia/50 leading-none">Баланс AIhim</span>
@@ -145,7 +149,7 @@ const UniverseStatus = ({
           
           <button 
             onClick={onOpenShop}
-            className="flex items-center gap-2 px-3 py-1.5 bg-gold text-white rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest hover:bg-gold/80 transition-colors shadow-lg gold-glow"
+            className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-gold text-white rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest hover:bg-gold/80 transition-colors shadow-lg gold-glow"
           >
             <Plus size={12} />
             КУПИТЬ
@@ -333,6 +337,12 @@ export const Atelier: React.FC<AtelierProps> = ({
 
   const [showProgressTooltip, setShowProgressTooltip] = useState(false);
 
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <DndContext 
@@ -341,6 +351,39 @@ export const Atelier: React.FC<AtelierProps> = ({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
+        {/* Mobile Header Stats (Only on Mobile, under logo) */}
+        <div className="flex md:hidden items-center justify-between gap-2 p-3 parchment-card bg-gold/5 border-gold/20 -mt-8 mb-2">
+          <div className="flex items-center gap-3">
+            <div className={`p-1.5 rounded-full ${worldPhase === 'day' ? 'bg-yellow-500/20 text-yellow-500' : 'bg-indigo-500/20 text-indigo-400'}`}>
+              {worldPhase === 'day' ? <Sun size={16} /> : <Moon size={16} />}
+            </div>
+            <div>
+              <div className="text-[8px] uppercase tracking-widest text-sepia/50 font-bold">Фаза Мира</div>
+              <div className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+                {worldPhase === 'day' ? 'День' : 'Ночь'}
+                <span className="font-mono text-[12px] opacity-80 text-gold">({formatTime(phaseTimer)})</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center gap-3 bg-sepia/5 px-3 py-1.5 rounded-full border border-gold/20">
+              <img src="https://i.ibb.co/5g4dfh7f/aihim.png" alt="AIhim" className="w-5 h-5 object-contain" />
+              <div className="flex flex-col">
+                <span className="text-[8px] uppercase font-bold text-sepia/50 leading-none">Баланс AIhim</span>
+                <span className="text-sm font-bold text-gold leading-none">{aihim}</span>
+              </div>
+            </div>
+            <button 
+              onClick={onOpenShop}
+              className="flex items-center justify-center gap-2 px-4 py-1 bg-gold text-white rounded-full text-[9px] font-bold uppercase tracking-widest hover:bg-gold/80 transition-colors shadow-lg gold-glow w-full"
+            >
+              <Plus size={10} />
+              КУПИТЬ
+            </button>
+          </div>
+        </div>
+
         {/* Universe State (New) */}
         <UniverseStatus 
           elements={elements} 

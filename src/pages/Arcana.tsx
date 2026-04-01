@@ -192,7 +192,7 @@ export const Arcana: React.FC<ArcanaProps> = ({ onReset, elements, aihim, setAih
                   RARITY_COLORS[rarity as Rarity] || "bg-sepia/5 border-sepia/10"
                 )}
               >
-                <span className="text-[10px] font-bold uppercase tracking-tighter truncate w-full">{rarity}</span>
+                <span className="text-[8px] sm:text-[10px] font-bold uppercase tracking-tighter truncate w-full">{rarity}</span>
                 <div className="text-xs font-mono opacity-60">{count}</div>
               </motion.div>
             );
@@ -370,7 +370,7 @@ export const Arcana: React.FC<ArcanaProps> = ({ onReset, elements, aihim, setAih
                   <span className="text-[10px] font-mono opacity-50">#{layer.level}</span>
                 </div>
                 <div>
-                  <div className="font-bold text-xs uppercase tracking-wider truncate">{layer.name}</div>
+                  <div className="font-bold text-[10px] sm:text-xs uppercase tracking-wider truncate">{layer.name}</div>
                   <p className="text-[9px] italic opacity-60 line-clamp-2 mt-1">
                     {isAvailable ? layer.desc : 'Слой заблокирован'}
                   </p>
@@ -407,7 +407,7 @@ export const Arcana: React.FC<ArcanaProps> = ({ onReset, elements, aihim, setAih
                 <div className="w-20 h-20 rounded-full bg-gold/10 flex items-center justify-center text-5xl border border-gold/20 shadow-xl">{selectedRank.icon}</div>
                 <div>
                   <div className="text-[10px] uppercase tracking-[0.3em] text-gold font-bold mb-1">Ранг Алхимика</div>
-                  <h2 className="font-gothic text-3xl tracking-widest text-sepia uppercase">{selectedRank.name}</h2>
+                  <h2 className="font-gothic text-xl md:text-3xl tracking-widest text-sepia uppercase">{selectedRank.name}</h2>
                   <div className="text-xs font-mono text-gold mt-1">Уровни: {selectedRank.levels}</div>
                 </div>
                 <div className="w-full h-px bg-sepia/10" />
@@ -492,7 +492,7 @@ export const Arcana: React.FC<ArcanaProps> = ({ onReset, elements, aihim, setAih
                 </div>
                 <div>
                   <div className="text-[10px] uppercase tracking-[0.3em] text-gold font-bold mb-1">Слой Реальности {selectedLayer.level}</div>
-                  <h2 className="font-gothic text-3xl tracking-widest text-sepia uppercase">{selectedLayer.name}</h2>
+                  <h2 className="font-gothic text-xl md:text-3xl tracking-widest text-sepia uppercase">{selectedLayer.name}</h2>
                 </div>
                 <div className="w-full h-px bg-sepia/10" />
                 <div className="space-y-4 text-left w-full">
@@ -547,7 +547,7 @@ export const Arcana: React.FC<ArcanaProps> = ({ onReset, elements, aihim, setAih
                 </div>
                 <div>
                   <div className="text-[10px] uppercase tracking-[0.3em] text-gold font-bold mb-1">Уровень Редкости</div>
-                  <h2 className="font-gothic text-3xl tracking-widest text-sepia uppercase">{selectedRarity.name}</h2>
+                  <h2 className="font-gothic text-xl md:text-3xl tracking-widest text-sepia uppercase">{selectedRarity.name}</h2>
                 </div>
                 <div className="w-full h-px bg-sepia/10" />
                 <div className="space-y-4 text-left w-full">
@@ -592,7 +592,7 @@ export const Arcana: React.FC<ArcanaProps> = ({ onReset, elements, aihim, setAih
                 </div>
                 <div>
                   <div className="text-[10px] uppercase tracking-[0.3em] text-gold font-bold mb-1">Тип Элемента</div>
-                  <h2 className="font-gothic text-3xl tracking-widest text-sepia uppercase">{selectedType.name}</h2>
+                  <h2 className="font-gothic text-xl md:text-3xl tracking-widest text-sepia uppercase">{selectedType.name}</h2>
                 </div>
                 <div className="w-full h-px bg-sepia/10" />
                 <div className="space-y-4 text-left w-full">
@@ -635,7 +635,7 @@ export const Arcana: React.FC<ArcanaProps> = ({ onReset, elements, aihim, setAih
                 </div>
                 <div>
                   <div className="text-[10px] uppercase tracking-[0.3em] text-gold font-bold mb-1">Сущность (Эссенция)</div>
-                  <h2 className="font-gothic text-3xl tracking-widest text-sepia uppercase">{translateEssence(selectedEssence.name)}</h2>
+                  <h2 className="font-gothic text-xl md:text-3xl tracking-widest text-sepia uppercase">{translateEssence(selectedEssence.name)}</h2>
                 </div>
                 <div className="w-full h-px bg-sepia/10" />
                 <div className="space-y-4 text-left w-full">

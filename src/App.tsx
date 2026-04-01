@@ -1013,20 +1013,21 @@ export default function App() {
         )}
 
         {isShopOpen && (
-          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsShopOpen(false)}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="parchment-card max-w-md w-full p-8 relative z-10 border-2 border-gold shadow-[0_0_50px_rgba(212,175,55,0.3)]"
-            >
+          <div className="fixed inset-0 z-[1000] overflow-y-auto custom-scrollbar">
+            <div className="min-h-screen flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsShopOpen(false)}
+                className="fixed inset-0 bg-black/80 backdrop-blur-sm"
+              />
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                className="parchment-card max-w-md w-full p-6 md:p-8 relative z-10 border-2 border-gold shadow-[0_0_50px_rgba(212,175,55,0.3)]"
+              >
               <button 
                 onClick={() => setIsShopOpen(false)}
                 className="absolute top-4 right-4 text-sepia/40 hover:text-sepia transition-colors"
@@ -1088,8 +1089,9 @@ export default function App() {
               </p>
             </motion.div>
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
+    </AnimatePresence>
     </div>
   );
 }
