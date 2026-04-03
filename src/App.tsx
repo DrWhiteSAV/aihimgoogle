@@ -10,6 +10,7 @@ import { ElementDetailsModal } from './components/ElementDetailsModal';
 import { ElementCard } from './components/ElementCard';
 import { VortexAnimation, MagicParticles, RareFlash } from './components/Animations';
 import { motion, AnimatePresence } from 'motion/react';
+import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
 import { Book, FlaskConical, History, Settings as SettingsIcon, Sparkles, X, Hammer, Thermometer, AlertCircle, Zap, Coins, User } from 'lucide-react';
 import { generateNewElement } from './services/gemini';
 import { clsx, type ClassValue } from 'clsx';
@@ -18,6 +19,40 @@ import { twMerge } from 'tailwind-merge';
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+const MaintenanceWrapper: React.FC<{
+  discoveredElements: AlchemyElement[];
+  setDiscoveredElements: React.Dispatch<React.SetStateAction<AlchemyElement[]>>;
+  aihim: number;
+  setAihim: React.Dispatch<React.SetStateAction<number>>;
+  setIsShopOpen: (open: boolean) => void;
+  toggleFavorite: (id: string) => void;
+  regenTimer: number;
+}> = ({ discoveredElements, setDiscoveredElements, aihim, setAihim, setIsShopOpen, toggleFavorite, regenTimer }) => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ duration: 0.3 }}
+    >
+      <Maintenance 
+        elements={discoveredElements}
+        setElements={setDiscoveredElements}
+        initialElementId={id}
+        onClearInitial={() => navigate('/maintenance', { replace: true })}
+        aihim={aihim}
+        setAihim={setAihim}
+        onOpenShop={() => setIsShopOpen(true)}
+        onToggleFavorite={toggleFavorite}
+        regenTimer={regenTimer}
+      />
+    </motion.div>
+  );
+};
 
 export default function App() {
   const [discoveredElements, setDiscoveredElements] = useState<AlchemyElement[]>(() => {
@@ -56,7 +91,10 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const [activeTab, setActiveTab] = useState<'atelier' | 'bestiary' | 'profile' | 'arcana' | 'maintenance'>('atelier');
+  const navigate = useNavigate();
+  const location = useLocation();
+  const activeTab = location.pathname === '/' ? 'atelier' : location.pathname.split('/')[1];
+
   const [aihim, setAihim] = useState<number>(() => {
     const saved = localStorage.getItem('aihim_energy');
     return saved ? parseInt(saved) : 1000000;
@@ -76,7 +114,6 @@ export default function App() {
   const [selectedElement, setSelectedElement] = useState<AlchemyElement | null>(null);
   const [slotA, setSlotA] = useState<AlchemyElement | null>(null);
   const [slotB, setSlotB] = useState<AlchemyElement | null>(null);
-  const [maintenanceElementId, setMaintenanceElementId] = useState<string | null>(null);
   const [isShopOpen, setIsShopOpen] = useState(false);
   const [cancelTimer, setCancelTimer] = useState(25);
   const [phaseTimer, setPhaseTimer] = useState(300);
@@ -471,7 +508,7 @@ export default function App() {
       {navItems.map((tab) => (
         <button
           key={tab.id}
-          onClick={() => setActiveTab(tab.id as any)}
+          onClick={() => navigate(tab.id === 'atelier' ? '/' : `/${tab.id}`)}
           className={`flex flex-col items-center p-2 min-w-[60px] transition-all duration-300 ${
             activeTab === tab.id ? 'text-gold scale-110' : 'text-sepia/60 hover:text-sepia'
           }`}
@@ -492,7 +529,7 @@ export default function App() {
       <header className="hidden md:flex flex-col md:flex-row items-center justify-between gap-4 relative z-[400] mb-8 pb-4 border-b border-sepia/10">
         <div 
           className="flex items-center gap-3 cursor-pointer group transition-all duration-300"
-          onClick={() => setActiveTab('atelier')}
+          onClick={() => navigate('/')}
         >
           <motion.img 
             whileHover={{ rotate: 10, scale: 1.1 }}
@@ -513,144 +550,125 @@ export default function App() {
       {/* Main Content Area (Pages) */}
       <main className="flex-1 relative">
         <AnimatePresence mode="wait">
-          {activeTab === 'atelier' && (
-            <motion.div
-              key="atelier-page"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3 }}
-            >
-              {/* Main Logo only on Atelier Page as requested */}
-              <div className="flex flex-col items-center mb-12">
-                <motion.img 
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  src="https://i.ibb.co/5g4dfh7f/aihim.png" 
-                  alt="AIhim Grand Logo" 
-                  className="h-32 md:h-48 object-contain mb-4 drop-shadow-2xl"
+          <Routes location={location} key={location.pathname.split('/')[1] || 'atelier'}>
+            <Route path="/" element={
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
+              >
+                {/* Main Logo only on Atelier Page as requested */}
+                <div className="flex flex-col items-center mb-12">
+                  <motion.img 
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    src="https://i.ibb.co/5g4dfh7f/aihim.png" 
+                    alt="AIhim Grand Logo" 
+                    className="h-32 md:h-48 object-contain mb-4 drop-shadow-2xl"
+                  />
+                </div>
+
+                <Atelier 
+                  elements={discoveredElements} 
+                  setElements={setDiscoveredElements}
+                  onCombine={handleCombine}
+                  isCombining={isCombining}
+                  worldPhase={worldPhase}
+                  phaseTimer={phaseTimer}
+                  alchemyMessage={alchemyMessage}
+                  onClearMessage={() => {
+                    setAlchemyMessage(null);
+                    setIsCombining(false);
+                  }}
+                  onSelectElement={setSelectedElement}
+                  onToggleFavorite={toggleFavorite}
+                  slotA={slotA}
+                  setSlotA={(el) => el === null ? setSlotA(null) : handleTrySetSlot(el as AlchemyElement, 'A')}
+                  slotB={slotB}
+                  setSlotB={(el) => el === null ? setSlotB(null) : handleTrySetSlot(el as AlchemyElement, 'B')}
+                  aihim={aihim}
+                  onOpenShop={() => setIsShopOpen(true)}
+                  selectedRealityLevel={selectedRealityLevel}
+                  onSelectRealityLevel={(level) => {
+                    setSelectedRealityLevel(level);
+                    localStorage.setItem('aihim_selected_layer', level.toString());
+                  }}
                 />
-              </div>
+              </motion.div>
+            } />
 
-              <Atelier 
-                elements={discoveredElements} 
-                setElements={setDiscoveredElements}
-                onCombine={handleCombine}
-                isCombining={isCombining}
-                worldPhase={worldPhase}
-                phaseTimer={phaseTimer}
-                alchemyMessage={alchemyMessage}
-                onClearMessage={() => {
-                  setAlchemyMessage(null);
-                  setIsCombining(false);
-                }}
-                onSelectElement={setSelectedElement}
-                onToggleFavorite={toggleFavorite}
-                slotA={slotA}
-                setSlotA={(el) => el === null ? setSlotA(null) : handleTrySetSlot(el as AlchemyElement, 'A')}
-                slotB={slotB}
-                setSlotB={(el) => el === null ? setSlotB(null) : handleTrySetSlot(el as AlchemyElement, 'B')}
-                aihim={aihim}
-                onOpenShop={() => setIsShopOpen(true)}
-                selectedRealityLevel={selectedRealityLevel}
-                onSelectRealityLevel={(level) => {
-                  setSelectedRealityLevel(level);
-                  localStorage.setItem('aihim_selected_layer', level.toString());
-                }}
-              />
-            </motion.div>
-          )}
+            <Route path="/bestiary" element={
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="mb-8">
+                  <h1 className="font-gothic text-3xl text-sepia tracking-widest">БЕСТИАРИЙ</h1>
+                  <p className="text-sepia italic text-sm opacity-70">Собрание всех известных сущностей</p>
+                </div>
+                <Bestiary 
+                  elements={discoveredElements} 
+                  onDelete={deleteElement}
+                  onSelectElement={setSelectedElement}
+                  onToggleFavorite={toggleFavorite}
+                />
+              </motion.div>
+            } />
 
-          {activeTab === 'bestiary' && (
-            <motion.div
-              key="bestiary-page"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="mb-8">
-                <h1 className="font-gothic text-3xl text-sepia tracking-widest">БЕСТИАРИЙ</h1>
-                <p className="text-sepia italic text-sm opacity-70">Собрание всех известных сущностей</p>
-              </div>
-              <Bestiary 
-                elements={discoveredElements} 
-                onDelete={deleteElement}
-                onSelectElement={setSelectedElement}
-                onToggleFavorite={toggleFavorite}
-              />
-            </motion.div>
-          )}
+            <Route path="/maintenance" element={<MaintenanceWrapper discoveredElements={discoveredElements} setDiscoveredElements={setDiscoveredElements} aihim={aihim} setAihim={setAihim} setIsShopOpen={setIsShopOpen} toggleFavorite={toggleFavorite} regenTimer={regenTimer} />} />
+            <Route path="/maintenance/:id" element={<MaintenanceWrapper discoveredElements={discoveredElements} setDiscoveredElements={setDiscoveredElements} aihim={aihim} setAihim={setAihim} setIsShopOpen={setIsShopOpen} toggleFavorite={toggleFavorite} regenTimer={regenTimer} />} />
 
-          {activeTab === 'maintenance' && (
-            <motion.div
-              key="maintenance-page"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Maintenance 
-                elements={discoveredElements}
-                setElements={setDiscoveredElements}
-                initialElementId={maintenanceElementId}
-                onClearInitial={() => setMaintenanceElementId(null)}
-                aihim={aihim}
-                setAihim={setAihim}
-                onOpenShop={() => setIsShopOpen(true)}
-                onToggleFavorite={toggleFavorite}
-                regenTimer={regenTimer}
-              />
-            </motion.div>
-          )}
+            <Route path="/profile" element={
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="mb-8">
+                  <h1 className="font-gothic text-3xl text-sepia tracking-widest">АЛХИМИК</h1>
+                  <p className="text-sepia italic text-sm opacity-70">Ваш путь к истинному знанию</p>
+                </div>
+                <Profile 
+                  elements={discoveredElements}
+                  history={history}
+                  aihim={aihim}
+                />
+              </motion.div>
+            } />
+            
+            <Route path="/arcana" element={
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="mb-8">
+                  <h1 className="font-gothic text-3xl text-sepia tracking-widest">АРКАНЫ</h1>
+                  <p className="text-sepia italic text-sm opacity-70">Тайные настройки мироздания</p>
+                </div>
+                <Arcana 
+                  elements={discoveredElements}
+                  aihim={aihim}
+                  setAihim={setAihim}
+                  onReset={() => {
+                    setDiscoveredElements(INITIAL_ELEMENTS);
+                    setHistory([]);
+                    setIsCombining(false);
+                    setAlchemyMessage(null);
+                    setAihim(1000000);
+                    localStorage.clear();
+                  }}
+                />
+              </motion.div>
+            } />
 
-          {activeTab === 'profile' && (
-            <motion.div
-              key="profile-page"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="mb-8">
-                <h1 className="font-gothic text-3xl text-sepia tracking-widest">АЛХИМИК</h1>
-                <p className="text-sepia italic text-sm opacity-70">Ваш путь к истинному знанию</p>
-              </div>
-              <Profile 
-                elements={discoveredElements}
-                history={history}
-                aihim={aihim}
-              />
-            </motion.div>
-          )}
-          
-          {activeTab === 'arcana' && (
-            <motion.div
-              key="arcana-page"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="mb-8">
-                <h1 className="font-gothic text-3xl text-sepia tracking-widest">АРКАНЫ</h1>
-                <p className="text-sepia italic text-sm opacity-70">Тайные настройки мироздания</p>
-              </div>
-              <Arcana 
-                elements={discoveredElements}
-                aihim={aihim}
-                setAihim={setAihim}
-                onReset={() => {
-                  setDiscoveredElements(INITIAL_ELEMENTS);
-                  setHistory([]);
-                  setIsCombining(false);
-                  setAlchemyMessage(null);
-                  setAihim(1000000);
-                  localStorage.clear();
-                }}
-              />
-            </motion.div>
-          )}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </AnimatePresence>
       </main>
 
@@ -851,14 +869,13 @@ export default function App() {
         onClose={() => setSelectedElement(null)} 
         onMaintenance={(element) => {
           if (!element) return;
-          setMaintenanceElementId(element.id);
-          setActiveTab('maintenance');
+          navigate(`/maintenance/${element.id}`);
           setSelectedElement(null);
         }}
         onUse={(element) => {
           if (!element) return;
           if (activeTab !== 'atelier') {
-            setActiveTab('atelier');
+            navigate('/');
           }
           
           if (!slotA) {
@@ -912,8 +929,7 @@ export default function App() {
                 </p>
                 <button
                   onClick={() => {
-                    setMaintenanceElementId(stabilityWarning.id);
-                    setActiveTab('maintenance');
+                    navigate(`/maintenance/${stabilityWarning.id}`);
                     setStabilityWarning(null);
                   }}
                   className="w-full bg-red-900 text-white py-3 rounded-full font-gothic tracking-widest shadow-lg"
@@ -957,8 +973,7 @@ export default function App() {
                 </p>
                 <button
                   onClick={() => {
-                    setMaintenanceElementId(temperatureWarning.id);
-                    setActiveTab('maintenance');
+                    navigate(`/maintenance/${temperatureWarning.id}`);
                     setTemperatureWarning(null);
                   }}
                   className="w-full bg-blue-900 text-white py-3 rounded-full font-gothic tracking-widest shadow-lg"
